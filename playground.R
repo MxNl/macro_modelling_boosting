@@ -18,15 +18,24 @@ back_vals_filter_sf <- tar_read(back_vals_filter_sf)
 preprocessing_recipe <- tar_read(preprocessing_recipe)
 xgboost_model_final <- tar_read(xgboost_model_final)
 train_test_split <- tar_read(train_test_split)
+resampling_strategy_cv <- tar_read(resampling_strategy_cv)
+preprocessing_recipe <- tar_read(preprocessing_recipe)
 xgboost_workflow_final <- tar_read(xgboost_workflow_final)
 xgboost_model_final_fit <- tar_read(xgboost_model_final_fit)
 prediction_testsplit <- tar_read(prediction_testsplit)
 xgboost_tuned <- tar_read(xgboost_tuned)
 tar_read(plot_train_test_split)
 tar_read(plot_feature_importance)
-tar_read(plot_observed_vs_predicted) +
-  scale_x_log10() +
-  scale_y_log10()
+tar_read(plot_observed_vs_predicted) %>%
+  map(function(x) {
+    x +
+      scale_x_log10() +
+      scale_y_log10()
+  })
+tar_read(plot_observed_vs_predicted) %>% 
+   ggpubr::ggarrange(plotlist = ., common.legend = TRUE)
+   cowplot::plot_grid(plotlist = .)
+
 tar_read(plot_residuals_vs_predicted)
 tar_read(xgboost_model_final)
 tar_read(preprocessing_recipe)

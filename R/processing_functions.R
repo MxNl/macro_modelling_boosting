@@ -27,22 +27,14 @@ bind_target_to_features_and_filter_NA_rows <-
     # target_variable <- "ca_mg_l"
     ###
     
-    # coords <- sf_points %>% 
-    #   st_coordinates() %>% 
-    #   as_tibble() %>% 
-    #   rename(x_coord = X,
-    #          y_coord = Y)
-    
-    
-    new_variable_name <- paste0("target_", target_variable)
+    # new_variable_name <- paste0("target_", target_variable)
     
     sf_points %>% 
       st_drop_geometry() %>% 
       as_tibble() %>% 
-      select(station_id, {{target_variable}}) %>% 
-      # bind_cols(coords) %>% 
+      select(station_id, {{target_variable}}) %>%
       left_join(features, by = "station_id") %>% 
-      rename(!!new_variable_name := !!target_variable) %>% 
+      rename(target= !!target_variable) %>% 
       drop_na(everything())
   }
 
@@ -53,13 +45,7 @@ add_feature_depth_and_filter_NA_rows <-
     # features <- tar_read(data_features)
     # target_variable <- "ca_mg_l"
     ###
-    
-    # coords <- sf_points %>% 
-    #   st_coordinates() %>% 
-    #   as_tibble() %>% 
-    #   rename(x_coord = X,
-    #          y_coord = Y)
-    
+
     sf_points %>% 
       st_drop_geometry() %>% 
       as_tibble() %>% 
@@ -79,4 +65,13 @@ tibble_to_sf <-
       left_join(sf_points) %>% 
       select(station_id, all_of(names(x)), geometry) %>% 
       st_as_sf()
+  }
+
+parameter_pretty <- 
+  function(parameter) {
+    # "ca_mg_l" %>% 
+    parameter %>%
+      str_to_title() %>% 
+      word(sep = "_") %>% 
+      str_c(" [mg/L]")
   }

@@ -3,9 +3,9 @@ make_recipe <-
   # train_test_split_object <- tar_read(train_test_split)
   #####
   
-  function(train_test_split_object, target_variable) {
+  function(train_test_split_object) {
     recipe(training(train_test_split_object)) %>% 
-      update_role({{target_variable}}, new_role = "outcome") %>%
+      update_role(target, new_role = "outcome") %>%
       update_role(station_id, new_role = "ID") %>%
       update_role(all_numeric(), -all_outcomes(), -station_id, new_role = "predictor") %>% 
       step_normalize(all_predictors()) %>%

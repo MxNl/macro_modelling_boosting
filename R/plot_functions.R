@@ -1,5 +1,9 @@
 make_plot_train_test_split <-
-  function(train_test_split_object) {
+  function(train_test_split_object, parameter = .y) {
+    ######## Test
+    # train_test_split_object <- tar_read(train_test_split)[[1]]
+    #####
+    
     ggplot() +
       geom_sf(
         data = training(train_test_split_object) %>%
@@ -16,7 +20,7 @@ make_plot_train_test_split <-
         size = 1
       ) +
       labs(
-        title = "**Locations of samples**",
+        title = str_c("**Locations of samples - ", parameter_pretty(parameter), "**"),
         subtitle = glue("**...used for<span style='color:{COLOUR_HEX_TRAIN}'> training</span> and<span style='color:{COLOUR_HEX_TEST}'> testing </span>**")
       ) +
       theme_minimal() +
@@ -27,7 +31,7 @@ make_plot_train_test_split <-
   }
 
 make_plot_feature_importance <-
-  function(model_fit) {
+  function(model_fit, parameter = .y) {
     plot <- model_fit %>%
       pull_workflow_fit() %>%
       vip(
@@ -37,21 +41,24 @@ make_plot_feature_importance <-
       )
 
     plot +
-      theme_minimal()
+      theme_minimal() +
+      theme(
+        plot.subtitle = element_markdown(),
+        plot.title = element_markdown()
+      ) +
+      labs(title = str_c("**Feature Importance Plot - ", parameter_pretty(parameter), "**"))
   }
 
 
 make_plot_observed_vs_predicted <-
-  function(prediction_testsplit, target_variable) {
+  function(prediction_testsplit, parameter = .y) {
     ######### Test
     # prediction_testsplit <- tar_read(prediction_testsplit)
     #######
 
-
     plot_data <-
       prediction_testsplit %>%
-      collect_predictions() %>% 
-      rename(target = {{target_variable}})
+      collect_predictions()
 
     metrics <-
       plot_data %>%
@@ -118,21 +125,24 @@ make_plot_observed_vs_predicted <-
       ylim(axis_limits) +
       xlab("Predicted Values") +
       ylab("Observed Values") +
-      labs(title = "Predicted Values vs. Observed Values",
+      labs(title = str_c("**Predicted Values vs. Observed Values - ", parameter_pretty(parameter), "**"),
            colour = "") +
       theme_minimal() +
       theme(legend.position = "top",
             legend.justification='left',
-            legend.direction='horizontal')
+            legend.direction='horizontal',
+            plot.subtitle = element_markdown(),
+            plot.title = element_markdown()
+            )
   }
 
 make_plot_residuals_vs_predicted <-
-  function(prediction_testsplit, target_variable) {
+  function(prediction_testsplit, parameter = .y) {
     
     plot_data <- 
       prediction_testsplit %>%
       collect_predictions() %>%
-      mutate(residual_percent = ({{target_variable}} - .pred) / .pred)
+      mutate(residual_percent = (target - .pred) / .pred)
     
     axis_limits <-
       plot_data %>%
@@ -154,12 +164,15 @@ make_plot_residuals_vs_predicted <-
       guides(colour = guide_colorbar(ticks = FALSE)) +
       xlab("Predicted Values") +
       ylab("Residual [%]") +
-      labs(title = "Residuals vs. Predicted Values",
+      labs(title = str_c("**Residuals vs. Predicted Values - ", parameter_pretty(parameter), "**"),
            colour = "") +
       scale_y_continuous(labels = scales::percent,
                          limits = axis_limits) +
       theme_minimal() +
       theme(legend.position = "top",
               legend.justification='left',
-              legend.direction='horizontal')
+              legend.direction='horizontal',
+            plot.subtitle = element_markdown(),
+            plot.title = element_markdown()
+            )
   }
