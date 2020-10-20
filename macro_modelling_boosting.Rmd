@@ -1,0 +1,207 @@
+---
+title: "MACRO - Mapping hydrogeochemical parameters using machine learning"
+subtitle: "Training a XGBoost model"
+author: "Maximilian Nölscher"
+date: "`r format(Sys.time(), '%d/%m/%Y')`"
+output:
+  html_document:
+    theme: lumen
+    highlight: tango
+    toc: TRUE
+    toc_float: TRUE
+    collapse: FALSE
+    toc_depth: 3
+    collapsed: FALSE
+    smooth_scroll: FALSE
+    number_sections: TRUE
+    self_contained: yes
+    df_print: paged
+    code_folding: show
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+knitr::opts_chunk$set(warning = FALSE)
+knitr::opts_chunk$set(message = FALSE)
+knitr::opts_chunk$set(out.width = "100%")
+options(tidyverse.quiet = TRUE)
+```
+
+```{r}
+library(skimr)
+library(visdat)
+```
+
+
+This report summarizes the results of code written with the purpose to
+
+- do explanatory data analysis (EDA) on the features and the target variables
+- set up an xgboost model
+- tune hyperparameters
+- evaluate the model
+
+# Data Import
+## Hydrocheocamical Parameters (target variables)
+```{r, echo = TRUE}
+data_targets <- 
+  tar_read(back_vals_filter_sf) %>% 
+  st_drop_geometry() %>% 
+  as_tibble()
+
+data_targets
+```
+## Features
+
+```{r}
+data_features <- 
+  tar_read(data_features_depth_added)
+```
+
+
+# Exploratory Analysis
+
+## Target Variables
+
+For a first impression of the target variables we print the summary of simple statistical properties.
+```{r}
+data_targets %>% 
+  select(one_of(HYDROGEOCHEMICAL_PARAMS_MAJOR_IONS)) %>% 
+  skim()
+```
+
+As a next step we look at the data types and missing values.
+```{r}
+data_targets %>%
+  select(one_of(HYDROGEOCHEMICAL_PARAMS_MAJOR_IONS)) %>% 
+  set_names(parameter_pretty_markdown(names(.), with_unit = FALSE, markdown = FALSE)) %>% 
+  vis_dat(warn_large_data = FALSE)
+```
+**Need for action:** All parameters have missing values, which will be removed after joining the single parameter with the features as the missing values occure in different samples.
+
+
+One way to get an overview of the values is to plot them individually after rescaling to the range from 0 to 1.
+```{r}
+data_targets %>% 
+  select(one_of(HYDROGEOCHEMICAL_PARAMS_MAJOR_IONS)) %>%
+  set_names(parameter_pretty_markdown(names(.), with_unit = FALSE, markdown = FALSE)) %>% 
+  vis_value() +
+  guides(fill = guide_legend(title = "Value\n(rescaled)"))
+```
+
+To check how the distributions of each target variable looks like, we visualize their values in a violine plot.
+```{r}
+tar_read(plot_violin_distribution_targets)
+```
+Alternativle, to also see the true and unscaled values we can additionally plot histograms.
+```{r, fig.height=8}
+data_targets %>% 
+  select(one_of(HYDROGEOCHEMICAL_PARAMS_MAJOR_IONS)) %>%
+  set_names(parameter_pretty_markdown(names(.), with_unit = FALSE, bold = TRUE)) %>% 
+  pivot_longer(cols = everything()) %>% 
+  drop_na(value) %>%
+  # group_by(name) %>% 
+  # summarise(min = min(value),
+  #           max = max(value))
+  ggplot(aes(value)) +
+  geom_histogram(fill = COLOUR_HEX_BAR_FILL,
+                 boundary = 0) +
+  scale_y_log10() +
+      theme_minimal() +
+      labs(x = "Concentration [mg/L]",
+           y = "Count",
+           fill = "",
+           alpha = ALPHA_BARS) +
+      theme(
+        plot.subtitle = element_markdown(),
+        plot.title = element_markdown(),
+        axis.text.y = element_markdown(),
+        legend.text = element_markdown(),
+        # strip.background = element_blank(),
+        strip.text.x = element_markdown()
+        ) +
+  facet_wrap(~name, ncol = 2, scales = "free_x")
+```
+
+**Need for action:** We can see that all parameters have some negative values which does not make sense for concentrations with the unit mg/L. This will handled later.
+
+## Features
+
+Due to the large number (`r data_features %>% select(-station_id) %>% ncol()`) of features, it's hardly possible to plot all features at once. Therefore a smaller random subset will be plotted.
+Analog to the target variables we try to get an overview of the features.
+
+```{r}
+data_features %>% 
+  select(-station_id) %>% 
+  skim()
+```
+
+As a next step we look at the data types and missing values.
+```{r}
+data_features %>% 
+  select(-station_id) %>% 
+  set_names(as.character(1:ncol(.))) %>% 
+  vis_dat(warn_large_data = FALSE) +
+  theme(axis.text.x = element_blank(),
+        legend.position = "top",
+        legend.justification = "left") +
+  labs(x = "Feature")
+```
+
+One way to get an overview of the values is to plot them individually after rescaling to the range from 0 to 1.
+```{r}
+data_features %>% 
+  select(-station_id) %>% 
+  vis_value() +
+  theme(axis.text.x = element_blank(),
+        legend.position = "top",
+        legend.justification = "left") +
+  labs(x = "Feature")
+```
+
+
+
+Alternativle, to also see the true and unscaled values we can additionally plot histograms.
+```{r, fig.height=10}
+tar_read(plot_histogram_distribution_features)
+```
+
+
+Now, we can look at the correlations between the highest correlated features.
+```{r, echo = TRUE, fig.height=8}
+tar_read(interactive_correlation_plot)
+```
+
+# Preprocessing
+
+# Modelling
+
+## Best Hyperparameters {.tabset}
+
+```{r, echo = FALSE, results = "asis"}
+# model_params <- tar_read(xgboost_model_final_params)
+# 
+# template <- "### %s
+# %s
+# 
+# "
+# 
+# for (i in seq_along(model_params)) {
+#   cat(sprintf(template, names(model_params[[i]]), model_params[[i]]))
+# }
+```
+
+
+# Results
+
+### Filter {.tabset}
+
+To keep only relevant observations of the data we filter the data. The following plot help visualizing the distributions of columns that are used for filtering. They also show what proportion of the data remains in the dataset and how much of it is being discarded for a specific threshold.
+
+#### Date
+
+dghjf
+
+#### Screen Depth
+
+dfgd
+

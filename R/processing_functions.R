@@ -38,7 +38,7 @@ bind_target_to_features_and_filter_NA_rows <-
       drop_na(everything())
   }
 
-add_feature_depth_and_filter_NA_rows <- 
+add_feature_depth <- 
   function(sf_points, features){
     #### Test
     # sf_points <- back_vals_filter_sf
@@ -52,7 +52,7 @@ add_feature_depth_and_filter_NA_rows <-
       select(station_id, sample_depth) %>% 
       # bind_cols(coords) %>% 
       left_join(features, by = "station_id") %>% 
-      drop_na(everything())
+      rename(sampledepth_sampledepth = sample_depth)
   }
 
 tibble_to_sf <- 
@@ -67,11 +67,39 @@ tibble_to_sf <-
       st_as_sf()
   }
 
-parameter_pretty <- 
-  function(parameter) {
-    # "ca_mg_l" %>% 
-    parameter %>%
-      str_to_title() %>% 
-      word(sep = "_") %>% 
-      str_c(" [mg/L]")
+parameter_pretty_markdown <-
+  function(parameter, with_unit = TRUE, markdown = TRUE, bold = FALSE) {
+    ######## Test
+    # parameter <- HYDROGEOCHEMICAL_PARAMS_MAJOR_IONS
+    # with_unit <- FALSE
+    # markdown <- TRUE
+    # bold <- TRUE
+    ###
+
+    parameter <- parameter %>%
+      str_to_title() %>%
+      word(sep = "_") %>%
+      str_replace_all("o", "O") %>%
+      str_replace_all("c", "C")
+    # str_replace_all("[:digit:]", "<sub>[:digit:]</sub>") %>%
+    if (with_unit) {
+      parameter <-
+        parameter %>%
+        str_c(" [mg/L]")
+    } else if (markdown) {
+      parameter <-
+        parameter %>%
+        sub("(\\d)", "<sub>\\1</sub>", .)
+      if (bold) {
+        parameter <-
+          parameter %>%
+          str_c("**", ., "**")
+      } else {
+        parameter
+      }
+    } else {
+      parameter
+    }
+
+    return(parameter)
   }

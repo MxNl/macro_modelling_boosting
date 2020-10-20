@@ -23,6 +23,7 @@ tar_option_set(packages = c("parallel",
                             "assertr",
                             "rmarkdown",
                             "corrr",
+                            "ggpubr",
                             "ggtext",
                             "glue",
                             "vip",
@@ -76,7 +77,7 @@ targets <- list(
 
   tar_target(
     data_features_depth_added,
-    add_feature_depth_and_filter_NA_rows(
+    add_feature_depth(
       back_vals_filter_allpositive_sf,
       data_features_wo_orientations
     )
@@ -84,7 +85,7 @@ targets <- list(
 
   tar_target(
     parameters_to_model,
-    HYDROGEOCHEMICAL_PARAMS_MAJOR_IONS#[c(1, 8)]
+    HYDROGEOCHEMICAL_PARAMS_MAJOR_IONS[c(1, 8)]
   ),
   
   tar_target(
@@ -208,7 +209,33 @@ targets <- list(
   # ),
   
 
-# Plots -------------------------------------------------------------------
+  # Plots -------------------------------------------------------------------
+
+  
+  
+  tar_target(
+    plot_violin_distribution_targets,
+    make_plot_violin_distribution_targets(
+      back_vals_filter_sf,
+      parameters_to_model
+    )
+  ),
+  
+  tar_target(
+    plot_histogram_distribution_features,
+    make_plot_histogram_distribution_features(
+      data_features_depth_added,
+      20
+    )
+  ),
+  
+  tar_target(
+    interactive_correlation_plot,
+    make_interactive_correlation_plot(
+      data_features_depth_added
+    )
+  ),
+
 
   tar_target(
     plot_train_test_split,
@@ -240,6 +267,13 @@ targets <- list(
       prediction_testsplit,
       make_plot_residuals_vs_predicted
     )
+  ),
+
+  # Report ------------------------------------------------------------------
+
+  tar_render(
+    report,
+    "macro_modelling_boosting.Rmd"
   )
 
   

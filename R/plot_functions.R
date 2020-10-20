@@ -1,3 +1,175 @@
+make_plot_violin_distribution_targets <- 
+  function(x, parameters = NULL) {
+    ##### TEst
+    # x <- tar_read(back_vals_filter_allpositive_sf)
+    # parameters <- tar_read(parameters_to_model)
+    ####
+    
+  plot_data <- 
+      x %>% 
+      st_drop_geometry() %>% 
+      as_tibble() %>% 
+      select(all_of(parameters)) %>% 
+      janitor::remove_empty("rows") %>% 
+      pivot_longer(cols = everything()) %>% 
+      mutate(value = replace(value, value == 0, 1e-5)) %>% 
+      mutate(name = parameter_pretty_markdown(name)) %>% 
+      mutate(name = str_replace_all(name, "\\[mg/L\\]", "")) %>% 
+      mutate(name = str_replace_all(name, " ", ""))
+
+    plot <- 
+      plot_data %>% 
+      ggplot(aes(name, value)) +
+      geom_violin(fill = COLOUR_HEX_BAR_FILL,
+                  colour = COLOUR_HEX_BAR_FILL) +
+      scale_y_log10() +
+      theme_minimal() +
+      labs(x = "Parameter",
+           y = "Concentration [mg/L]") +
+      theme(
+        plot.subtitle = element_markdown(),
+        plot.title = element_markdown(),
+        axis.text.y = element_markdown()
+        ) +
+      coord_flip()
+      # facet_wrap(~name, nrow = 1, scales = "free_y")
+    
+    return(plot)
+  }
+
+
+make_plot_histogram_distribution_features <- 
+  function(x, n_features) {
+    ##### TEst
+    # x <- tar_read(data_features_depth_added)
+    # n_features <- 30
+    ####
+
+    plot1_data <- 
+      x %>% 
+      select(-contains("coord"), -station_id) %>% 
+      select(-precipitation_precipitation, -seepage_seepage, -gwrecharge_gwrecharge, -temperature_temperature, -sampledepth_sampledepth) %>% 
+      pivot_longer(cols = everything()) %>% 
+      drop_na(value) %>% 
+      filter(name %in% c(sample(unique(.$name), n_features))) %>% 
+      mutate(feature = word(name, sep = "_"))
+
+    plot2_data <- 
+      x %>%
+      select(precipitation_precipitation, seepage_seepage, gwrecharge_gwrecharge, temperature_temperature, sampledepth_sampledepth) %>% 
+      pivot_longer(cols = everything()) %>% 
+      drop_na(value) %>% 
+      mutate(feature = word(name, sep = "_"))
+      
+    plot1 <- 
+      plot1_data %>% 
+      ggplot(aes(value)) +
+      geom_histogram(aes(fill = feature),
+                  boundary = 0,
+                  alpha = ALPHA_BARS) +
+      scale_y_log10() +
+      theme_minimal() +
+      labs(x = "Value",
+           y = "Count",
+           fill = "") +
+      # scale_fill_manual(
+      #   values = COLOUR_SCHEME
+      # ) +
+      theme(
+        plot.subtitle = element_markdown(),
+        plot.title = element_markdown(),
+        axis.text.y = element_markdown(),
+        strip.background = element_blank(),
+        strip.text.x = element_blank(),
+        legend.position = "top",
+        legend.justification='left',
+        legend.direction='horizontal'
+        ) +
+      # coord_flip() +
+      facet_wrap(~name, ncol = 3)
+    
+    plot2 <- 
+      plot2_data %>% 
+      ggplot(aes(value)) +
+      geom_histogram(fill = COLOUR_HEX_BAR_FILL,
+                  boundary = 0,
+                  alpha = ALPHA_BARS) +
+      # scale_y_log10() +
+      theme_minimal() +
+      labs(x = "Value",
+           y = "Count",
+           fill = "") +
+      # scale_fill_manual(
+      #   values = COLOUR_SCHEME
+      # ) +
+      theme(
+        plot.subtitle = element_markdown(),
+        plot.title = element_markdown(),
+        axis.text.y = element_markdown(),
+        # strip.background = element_blank(),
+        # strip.text.x = element_blank(),
+        legend.position = "top",
+        legend.justification='left'
+        ) +
+      # coord_flip() +
+      facet_wrap(~name, ncol = 1, scales = "free")
+    
+    ggpubr::ggarrange(plot1, plot2, ncol = 1) %>% 
+      return()
+  }
+
+
+make_interactive_correlation_plot <-
+  function(features, focus_n_maxcorr = 20) {
+    #### Test
+    # features <- tar_read(data_features_depth_added)
+    ###
+    
+    plot_data <- 
+      features %>%
+      select(-contains("coord"), -station_id) %>%
+      drop_na(everything()) %>% 
+      corrr::correlate()
+    
+    columns_to_keep <- 
+      plot_data %>% 
+      corrr::stretch() %>% 
+      group_by(x) %>% 
+      summarise(sum = sum(abs(r), na.rm = TRUE)) %>% 
+      arrange(-sum) %>% 
+      slice_head(n = focus_n_maxcorr) %>% 
+      pull(x)
+    
+    plot <-
+      plot_data %>% 
+      corrr::rearrange() %>% 
+      corrr::shave(upper = FALSE) %>% 
+      corrr::stretch() %>% 
+      filter(x %in% columns_to_keep & y %in% columns_to_keep) %>% 
+      corrr::retract() %>%
+      corrr::rplot(colours = c(COLOUR_HEX_DIVERGING_NEGATIVE, "white", COLOUR_HEX_DIVERGING_POSITIVE))
+    
+    plot <- 
+      plot +
+      # labs(title = glue("**Correlation Plot**"),
+      #      subtitle = glue("of the {focus_n_maxcorr} highest correlated features")) +
+      theme(axis.text.x = element_text(angle = 45, vjust = 0.5, hjust=1),
+            plot.subtitle = element_markdown(),
+            plot.title = element_markdown())
+    
+    
+    plot %>%
+      plotly::ggplotly() %>% 
+      plotly::layout(title = list(text = str_c(glue("<b>Correlation Plot</b>"),
+                                       "<br>",
+                                       "<sup>",
+                                       glue("of the {focus_n_maxcorr} highest correlated features"),
+                                       "</sup>"),
+                                  x = 0.3,
+                                  xanchor = "left"))
+  }
+
+
 make_plot_train_test_split <-
   function(train_test_split_object, parameter = .y) {
     ######## Test
@@ -20,8 +192,8 @@ make_plot_train_test_split <-
         size = 1
       ) +
       labs(
-        title = str_c("**Locations of samples - ", parameter_pretty(parameter), "**"),
-        subtitle = glue("**...used for<span style='color:{COLOUR_HEX_TRAIN}'> training</span> and<span style='color:{COLOUR_HEX_TEST}'> testing </span>**")
+        title = str_c("**Locations of samples - ", parameter_pretty_markdown(parameter), "**"),
+        subtitle = glue("...used for<span style='color:{COLOUR_HEX_TRAIN}'> training</span> and<span style='color:{COLOUR_HEX_TEST}'> testing </span>")
       ) +
       theme_minimal() +
       theme(
@@ -36,7 +208,7 @@ make_plot_feature_importance <-
       pull_workflow_fit() %>%
       vip(
         fill = COLOUR_HEX_BAR_FILL,
-        alpha = .6,
+        alpha = ALPHA_BARS,
         num_features = 20
       )
 
@@ -46,7 +218,7 @@ make_plot_feature_importance <-
         plot.subtitle = element_markdown(),
         plot.title = element_markdown()
       ) +
-      labs(title = str_c("**Feature Importance Plot - ", parameter_pretty(parameter), "**"))
+      labs(title = str_c("**Feature Importance Plot - ", parameter_pretty_markdown(parameter), "**"))
   }
 
 
@@ -98,7 +270,7 @@ make_plot_observed_vs_predicted <-
         size = 1
       ) +
       geom_pointdensity(
-        alpha = .3,
+        alpha = ALPHA_POINTS,
         shape = 16
       ) +
       scale_color_gradientn(
@@ -125,7 +297,7 @@ make_plot_observed_vs_predicted <-
       ylim(axis_limits) +
       xlab("Predicted Values") +
       ylab("Observed Values") +
-      labs(title = str_c("**Predicted Values vs. Observed Values - ", parameter_pretty(parameter), "**"),
+      labs(title = str_c("**Predicted Values vs. Observed Values - ", parameter_pretty_markdown(parameter), "**"),
            colour = "") +
       theme_minimal() +
       theme(legend.position = "top",
@@ -153,7 +325,7 @@ make_plot_residuals_vs_predicted <-
       ggplot() +
       aes(.pred, y = residual_percent) +
       geom_pointdensity(
-        alpha = .3,
+        alpha = ALPHA_POINTS,
         shape = 16
       ) +
       scale_color_gradientn(
@@ -164,7 +336,7 @@ make_plot_residuals_vs_predicted <-
       guides(colour = guide_colorbar(ticks = FALSE)) +
       xlab("Predicted Values") +
       ylab("Residual [%]") +
-      labs(title = str_c("**Residuals vs. Predicted Values - ", parameter_pretty(parameter), "**"),
+      labs(title = str_c("**Residuals vs. Predicted Values - ", parameter_pretty_markdown(parameter), "**"),
            colour = "") +
       scale_y_continuous(labels = scales::percent,
                          limits = axis_limits) +

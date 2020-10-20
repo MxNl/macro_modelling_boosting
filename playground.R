@@ -23,7 +23,9 @@ preprocessing_recipe <- tar_read(preprocessing_recipe)
 xgboost_workflow_final <- tar_read(xgboost_workflow_final)
 xgboost_model_final_fit <- tar_read(xgboost_model_final_fit)
 prediction_testsplit <- tar_read(prediction_testsplit)
+tar_read(xgboost_model_final_params)
 xgboost_tuned <- tar_read(xgboost_tuned)
+tar_read(interactive_correlation_plot)
 tar_read(plot_train_test_split)
 tar_read(plot_feature_importance)
 tar_read(plot_observed_vs_predicted) %>%
@@ -36,7 +38,8 @@ tar_read(plot_observed_vs_predicted) %>%
    ggpubr::ggarrange(plotlist = ., common.legend = TRUE)
    cowplot::plot_grid(plotlist = .)
 
-tar_read(plot_residuals_vs_predicted)
+tar_read(plot_residuals_vs_predicted) %>% 
+   imap(~ggsave(str_c("C:/Noelscher.M/Desktop/plots/residuals_", .y, ".png"), .x))
 tar_read(xgboost_model_final)
 tar_read(preprocessing_recipe)
 
@@ -46,12 +49,22 @@ data_features_target %>%
   pull(target_ca_mg_l) %>% 
   range()
 
+
+tar_read(data_features) %>% 
+   select(contains("temperature")) %>% 
+   summarise()
  
 prediction_testsplit %>% 
    collect_metrics()
  
 
- 
+"J:/NUTZER/Noelscher.M/Studierende/Daten/hydrogeochemical_background_values/germany/multi_time/tabular/hintergrundwerte_bgr/data/point_data/reprojected/tbl_hgc_pkt_2005.csv" %>% 
+   read_csv2() %>% 
+   janitor::clean_names() %>% 
+   select(one_of(HYDROGEOCHEMICAL_PARAMS_MAJOR_IONS)) %>% 
+   mutate(across(everything(), as.character)) %>% 
+   pivot_longer(cols = everything()) %>% 
+   filter(str_detect(value, "n"))
 
  predict(xgboost_model_final_fit, new_data = bake(preprocessing_recipe, new_data = training(train_test_split)))
  
