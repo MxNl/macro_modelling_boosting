@@ -85,7 +85,7 @@ targets <- list(
 
   tar_target(
     parameters_to_model,
-    HYDROGEOCHEMICAL_PARAMS_MAJOR_IONS[c(1, 8)]
+    HYDROGEOCHEMICAL_PARAMS_MAJOR_IONS#[c(1, 8)]
   ),
   
   tar_target(
