@@ -1,0 +1,116 @@
+---
+title: "MACRO - Mapping hydrogeochemical parameters using machine learning"
+subtitle: "Training a XGBoost model"
+author: "Maximilian Nölscher"
+date: "`r format(Sys.time(), '%d/%m/%Y')`"
+output:
+  html_document:
+    theme: lumen
+    highlight: tango
+    toc: TRUE
+    toc_float: TRUE
+    collapse: FALSE
+    toc_depth: 3
+    collapsed: FALSE
+    smooth_scroll: FALSE
+    number_sections: TRUE
+    self_contained: yes
+    # df_print: paged
+    code_folding: show
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+knitr::opts_chunk$set(warning = FALSE)
+knitr::opts_chunk$set(message = FALSE)
+knitr::opts_chunk$set(out.width = "100%")
+options(tidyverse.quiet = TRUE)
+```
+
+```{r}
+library(skimr)
+library(visdat)
+library(knitr)
+library(pander)
+library(targets)
+library(tidyverse)
+```
+
+```{r, echo = FALSE}
+source("R/processing_functions.R")
+source("R/markdown.R")
+```
+
+
+# Modelling
+
+## Best Hyperparameters {.tabset}
+
+```{r, echo = FALSE, results = "asis"}
+# model_params <- tar_read(xgboost_model_final_params)
+# 
+# model_params %>% 
+#   names() %>% 
+#   parameter_pretty_markdown(with_unit = FALSE) %>% 
+#   map2(model_params, ~create_section(.y, .x, 3))
+```
+
+## Best test {.tabset}
+
+```{r, echo = FALSE, results = "asis"}
+list_of_dataframes <- 
+  iris %>% 
+  group_by(Species) %>% 
+  group_split()
+
+names_of_listelements <- 
+  iris %>% 
+  pull(Species) %>% 
+  as.character() %>% 
+  unique()
+
+# names_of_listelements %>% 
+#   map2(list_of_dataframes, ~create_section(.y, .x, 3, data_type = "tibble"))
+
+
+for (i in seq_along(names_of_listelements)) {
+    cat("### ", names_of_listelements[i], "\n")
+    list_of_dataframes[[i]] %>% 
+      kable()
+    cat("\n\n")
+}
+```
+
+## Best test second {.tabset}
+
+```{r, echo = FALSE, results = "asis"}
+list_of_dataframes %>% 
+  set_names(names_of_listelements) %>% 
+  affiche_multi_df()
+```
+
+## Pure DF
+```{r, results = "asis"}
+model_params <- tar_read(xgboost_model_final_params)
+model_params[[1]] %>% 
+  kable()
+```
+
+
+# Results {.tabset}
+
+```{r, echo = FALSE, results = "asis"}
+plot_observed_vs_predicted <- tar_read(plot_observed_vs_predicted)
+
+plot_observed_vs_predicted %>%
+  names() %>%
+  parameter_pretty_markdown(with_unit = FALSE) %>%
+  map2(plot_observed_vs_predicted, ~create_section(.y, .x, 2))
+```
+
+
+
+
+
+
+

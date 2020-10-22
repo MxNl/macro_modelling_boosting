@@ -34,10 +34,43 @@ tar_read(plot_observed_vs_predicted) %>%
       scale_x_log10() +
       scale_y_log10()
   })
-tar_read(plot_observed_vs_predicted) %>% 
-   ggpubr::ggarrange(plotlist = ., common.legend = TRUE)
-   cowplot::plot_grid(plotlist = .)
 
+
+test_rset <- 
+   tar_read(resampling_strategy_cv)[[1]]
+   
+
+key_table_coords <- 
+   tar_read(back_vals_filter_sf) %>% 
+   select(station_id) %>% 
+   bind_cols(as_tibble(st_coordinates(.))) %>% 
+   st_drop_geometry() %>% 
+   as_tibble()
+
+data_sf <- 
+   tar_read(back_vals_filter_sf) %>% 
+   bind_cols(as_tibble(st_coordinates(.))) %>% 
+   st_drop_geometry() %>% 
+   as_tibble() %>% 
+   st_as_sf(coords = c("X", "Y")) %>% 
+   st_sf(crs = CRS_REFERENCE)
+
+test_blockcv <-
+  data_sf %>%
+  blockCV::spatialBlock(k = 5,
+                        species = "ca_mg_l",
+                        selection = "random",
+                        theRange = 70000)
+
+test_spatialcv <- 
+   tar_read(train_test_split) %>% 
+   pluck(1) %>% 
+   training() %>% 
+   left_join(key_table_coords, by = "station_id") %>% 
+   sperrorest::partition_kmeans(coords = c("X", "Y"), nfold = 5)
+   
+   
+   
 tar_read(plot_residuals_vs_predicted) %>% 
    imap(~ggsave(str_c("C:/Noelscher.M/Desktop/plots/residuals_", .y, ".png"), .x))
 tar_read(xgboost_model_final)

@@ -253,9 +253,10 @@ make_plot_observed_vs_predicted <-
         .pred = max(axis_limits),
         target = max(axis_limits),
         label = str_c(as.character(glue("<span style='color:grey'> **{metrics$.metric} = {metrics$.estimate}** </span>")), collapse = "<br>"),
+        alpha = .4,
         fill = "grey",
-        hjust = c(.8),
-        vjust = c(.8)
+        hjust = .8,
+        vjust = .8
       )
 
     plot_data %>%
@@ -276,7 +277,7 @@ make_plot_observed_vs_predicted <-
       scale_color_gradientn(
         colours = COLOUR_SCHEME,
         breaks=c(1, 150),
-        labels=c("low","high density")
+        labels=c("low                   high density","")
         ) +
       guides(colour = guide_colorbar(ticks = FALSE)) +
       # scale_color_viridis_c(
@@ -288,9 +289,11 @@ make_plot_observed_vs_predicted <-
         aes(
           label = label,
           hjust = hjust,
-          vjust = vjust
+          vjust = vjust,
+          alpha = alpha
         ),
-        label.color = NA
+        label.color = NA,
+        
       ) +
       coord_equal() +
       xlim(axis_limits) +
@@ -304,8 +307,8 @@ make_plot_observed_vs_predicted <-
             legend.justification='left',
             legend.direction='horizontal',
             plot.subtitle = element_markdown(),
-            plot.title = element_markdown()
-            )
+            plot.title = element_markdown(),
+            legend.text.align = 0)
   }
 
 make_plot_residuals_vs_predicted <-

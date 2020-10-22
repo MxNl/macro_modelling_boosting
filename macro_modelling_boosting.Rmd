@@ -30,6 +30,13 @@ options(tidyverse.quiet = TRUE)
 ```{r}
 library(skimr)
 library(visdat)
+library(knitr)
+```
+
+```{r, echo = FALSE}
+source("R/processing_functions.R")
+source("R/markdown.R")
+source("R/config.R")
 ```
 
 
@@ -177,31 +184,77 @@ tar_read(interactive_correlation_plot)
 
 ## Best Hyperparameters {.tabset}
 
+The following table summarises the hyperparameters of the best model configuration according to tuning process.
 ```{r, echo = FALSE, results = "asis"}
-# model_params <- tar_read(xgboost_model_final_params)
-# 
-# template <- "### %s
-# %s
-# 
-# "
-# 
-# for (i in seq_along(model_params)) {
-#   cat(sprintf(template, names(model_params[[i]]), model_params[[i]]))
-# }
+model_params <- tar_read(xgboost_model_final_params)
+
+model_params %>% 
+  imap(~mutate(.x, parameter = .y, .before = 1)) %>% 
+  reduce(bind_rows) %>% 
+  mutate(parameter = parameter_pretty_markdown(parameter, with_unit = FALSE)) %>% 
+  kable()
 ```
 
+...or shown separately for each parameter and as bar chart.
 
-# Results
+```{r, echo = FALSE, results = "asis"}
+model_params <- tar_read(xgboost_model_final_params)
 
-### Filter {.tabset}
+plots_model_params <- 
+  model_params %>% 
+  map(function(.x) {
+    .x %>% 
+      pivot_longer(cols = -".config") %>% 
+      mutate(value = signif(value, 3)) %>% 
+      mutate(name = str_replace_all(name, "_", " ")) %>% 
+      ggplot(aes(name, value, label = value)) +
+      geom_col(fill = COLOUR_HEX_BAR_FILL,
+               alpha = ALPHA_BARS) +
+      geom_label() +
+      theme_minimal() +
+      labs(x = "parameter")
+  })
 
-To keep only relevant observations of the data we filter the data. The following plot help visualizing the distributions of columns that are used for filtering. They also show what proportion of the data remains in the dataset and how much of it is being discarded for a specific threshold.
+plots_model_params %>%
+  names() %>%
+  parameter_pretty_markdown(with_unit = FALSE) %>% 
+  map2(plots_model_params, ~create_section(.y, .x, 3))
+```
 
-#### Date
+# Evaluation
 
-dghjf
+## Performance {.tabset}
+```{r, echo = FALSE, results = "asis"}
+plot_observed_vs_predicted <- tar_read(plot_observed_vs_predicted)
+plot_residuals_vs_predicted <- tar_read(plot_residuals_vs_predicted)
 
-#### Screen Depth
+names_pretty <-
+  plot_observed_vs_predicted %>%
+  names() %>%
+  parameter_pretty_markdown(with_unit = FALSE)
 
-dfgd
+for (i in seq_along(names_pretty)) {
+  create_section_results(plot_observed_vs_predicted[[i]],
+                         plot_residuals_vs_predicted[[i]],
+                         names_pretty[[i]],
+                         3)
+}
 
+# plot_observed_vs_predicted %>%
+#   names() %>%
+#   parameter_pretty_markdown(with_unit = FALSE) %>%
+#   list(plot_observed_vs_predicted,
+#        plot_residuals_vs_predicted) %>%
+#   pmap(~create_section_results(..2, ..1, ..3, 3))
+```
+
+## Feature Importance {.tabset}
+
+```{r, echo = FALSE, results = "asis"}
+plot_feature_importance <- tar_read(plot_feature_importance)
+
+plot_feature_importance %>%
+  names() %>%
+  parameter_pretty_markdown(with_unit = FALSE) %>% 
+  map2(plot_feature_importance, ~create_section(.y, .x, 3))
+```
