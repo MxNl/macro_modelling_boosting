@@ -8,6 +8,8 @@ library(doParallel)
 library(sf)
 library(vip)
 library(tidymodels)
+library(leafgl)
+library(leaflet)
 library(tidyverse)
 
 
@@ -35,10 +37,33 @@ tar_read(plot_observed_vs_predicted) %>%
       scale_y_log10()
   })
 
+options(viewer = NULL) # view in browser
+
+points <- tar_read(back_vals_filter_sf) %>% 
+   # as_tibble() %>% 
+   # select(all_of(HYDROGEOCHEMICAL_PARAMS_MAJOR_IONS), contains("geometry")) %>% 
+   # mutate(geometry = as.character(geometry)) %>% 
+   # pivot_longer(cols = all_of(HYDROGEOCHEMICAL_PARAMS_MAJOR_IONS)) %>% 
+   # drop_na(value) %>% 
+   # group_by(geometry) %>% 
+   # mutate(n = n()) %>% 
+   # slice(1) %>% 
+   # ungroup() %>% 
+   # slice(1) %>%
+   # st_point(eval(expression(geometry)))
+   # st_as_sfc() %>% 
+   st_transform(4326)
+
+leaflet() %>%
+   addProviderTiles(provider = providers$CartoDB.DarkMatter) %>%
+   addCircleMarkers(data = points,
+               radius = 1,
+               fillOpacity = .7,
+               stroke = FALSE)
 
 test_rset <- 
    tar_read(resampling_strategy_cv)[[1]]
-   
+
 
 key_table_coords <- 
    tar_read(back_vals_filter_sf) %>% 
