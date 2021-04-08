@@ -37,9 +37,7 @@ tar_option_set(packages = c("parallel",
 
 
 # Define targets
-targets <- list(
-
-
+list(
   # Data import -------------------------------------------------------------
 
   tar_target(
@@ -280,7 +278,6 @@ targets <- list(
   
 )
 
-tar_pipeline(targets)
 
 
 # targets::tar_make_future(workers = future::availableCores())
