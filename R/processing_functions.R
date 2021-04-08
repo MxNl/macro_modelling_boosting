@@ -27,46 +27,32 @@ bind_target_to_features_and_filter_NA_rows <-
     # target_variable <- "ca_mg_l"
     ###
     
-    # coords <- sf_points %>% 
-    #   st_coordinates() %>% 
-    #   as_tibble() %>% 
-    #   rename(x_coord = X,
-    #          y_coord = Y)
-    
-    
-    new_variable_name <- paste0("target_", target_variable)
+    # new_variable_name <- paste0("target_", target_variable)
     
     sf_points %>% 
       st_drop_geometry() %>% 
       as_tibble() %>% 
-      select(station_id, {{target_variable}}) %>% 
-      # bind_cols(coords) %>% 
+      select(station_id, {{target_variable}}) %>%
       left_join(features, by = "station_id") %>% 
-      rename(!!new_variable_name := !!target_variable) %>% 
+      rename(target= !!target_variable) %>% 
       drop_na(everything())
   }
 
-add_feature_depth_and_filter_NA_rows <- 
+add_feature_depth <- 
   function(sf_points, features){
     #### Test
     # sf_points <- back_vals_filter_sf
     # features <- tar_read(data_features)
     # target_variable <- "ca_mg_l"
     ###
-    
-    # coords <- sf_points %>% 
-    #   st_coordinates() %>% 
-    #   as_tibble() %>% 
-    #   rename(x_coord = X,
-    #          y_coord = Y)
-    
+
     sf_points %>% 
       st_drop_geometry() %>% 
       as_tibble() %>% 
       select(station_id, sample_depth) %>% 
       # bind_cols(coords) %>% 
       left_join(features, by = "station_id") %>% 
-      drop_na(everything())
+      rename(sampledepth_sampledepth = sample_depth)
   }
 
 tibble_to_sf <- 
@@ -79,4 +65,41 @@ tibble_to_sf <-
       left_join(sf_points) %>% 
       select(station_id, all_of(names(x)), geometry) %>% 
       st_as_sf()
+  }
+
+parameter_pretty_markdown <-
+  function(parameter, with_unit = TRUE, markdown = TRUE, bold = FALSE) {
+    ######## Test
+    # parameter <- HYDROGEOCHEMICAL_PARAMS_MAJOR_IONS
+    # with_unit <- FALSE
+    # markdown <- TRUE
+    # bold <- TRUE
+    ###
+
+    parameter <- parameter %>%
+      str_to_title() %>%
+      word(sep = "_") %>%
+      str_replace_all("o", "O") %>%
+      str_replace_all("c", "C")
+    # str_replace_all("[:digit:]", "<sub>[:digit:]</sub>") %>%
+    if (with_unit) {
+      parameter <-
+        parameter %>%
+        str_c(" [mg/L]")
+    } else if (markdown) {
+      parameter <-
+        parameter %>%
+        sub("(\\d)", "<sub>\\1</sub>", .)
+      if (bold) {
+        parameter <-
+          parameter %>%
+          str_c("**", ., "**")
+      } else {
+        parameter
+      }
+    } else {
+      parameter
+    }
+
+    return(parameter)
   }

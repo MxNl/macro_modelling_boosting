@@ -23,6 +23,7 @@ tar_option_set(packages = c("parallel",
                             "assertr",
                             "rmarkdown",
                             "corrr",
+                            "ggpubr",
                             "ggtext",
                             "glue",
                             "vip",
@@ -36,9 +37,7 @@ tar_option_set(packages = c("parallel",
 
 
 # Define targets
-targets <- list(
-
-
+list(
   # Data import -------------------------------------------------------------
 
   tar_target(
@@ -64,10 +63,10 @@ targets <- list(
 
   # Data preparation --------------------------------------------------------
 
-  tar_target(
-    data_features_wo_orientations,
-    summarise_orientations(data_features)
-  ),
+  # tar_target(
+  #   data_features_wo_orientations,
+  #   summarise_orientations(data_features)
+  # ),
 
   tar_target(
     back_vals_filter_allpositive_sf,
@@ -76,18 +75,26 @@ targets <- list(
 
   tar_target(
     data_features_depth_added,
-    add_feature_depth_and_filter_NA_rows(
+    add_feature_depth(
       back_vals_filter_allpositive_sf,
-      data_features_wo_orientations
+      data_features
     )
   ),
 
   tar_target(
+    parameters_to_model,
+    HYDROGEOCHEMICAL_PARAMS_MAJOR_IONS#[c(1, 8)]
+  ),
+  
+  tar_target(
     data_features_target,
-    bind_target_to_features_and_filter_NA_rows(
+    map(
+      parameters_to_model,
+      ~bind_target_to_features_and_filter_NA_rows(
       back_vals_filter_allpositive_sf,
       data_features_depth_added,
-      "ca_mg_l"
+      .
+      )
     )
   ),
   
@@ -96,98 +103,181 @@ targets <- list(
 
   tar_target(
     train_test_split,
-    make_train_test_split(data_features_target, target_ca_mg_l)
+    map(
+      data_features_target,
+      make_train_test_split
+    ) %>% 
+      set_names(parameters_to_model)
   ),
-  
+
   tar_target(
     resampling_strategy_cv,
-    make_resampling_strategy(train_test_split, target_ca_mg_l)
+    map(
+      train_test_split,
+      make_resampling_strategy
+    )
   ),
-  
+
   tar_target(
     preprocessing_recipe,
-    make_recipe(train_test_split, target_ca_mg_l)
+    map(
+      train_test_split,
+      make_recipe
+    ) %>% 
+      set_names(parameters_to_model)
   ),
-  
+
   tar_target(
     xgboost_model,
     make_model()
   ),
-  
+
   tar_target(
     xgboost_params,
     make_tuning_parameter_set()
   ),
-  
+
   tar_target(
     xgboost_grid,
     make_tuning_strategy(xgboost_params)
   ),
-  
+
   tar_target(
     xgboost_workflow,
-    make_workflow(xgboost_model, preprocessing_recipe)
+    map(
+      preprocessing_recipe,
+      ~make_workflow(xgboost_model, .)
+    ) %>% 
+      set_names(parameters_to_model)
   ),
-  
+
   tar_target(
     xgboost_tuned,
-    tune_model(xgboost_workflow, resampling_strategy_cv, xgboost_grid)
+    map2(
+      xgboost_workflow,
+      resampling_strategy_cv,
+      ~tune_model(.x, .y, xgboost_grid)
+    ) %>% 
+      set_names(parameters_to_model)
   ),
-  
+
   tar_target(
     xgboost_model_final_params,
-    get_best_model_params(xgboost_tuned)
+    map(
+      xgboost_tuned,
+      get_best_model_params
+    ) %>% 
+      set_names(parameters_to_model)
   ),
-  
+
   tar_target(
     xgboost_workflow_final,
-    make_final_workflow(xgboost_workflow, xgboost_model_final_params)
+    map2(
+      xgboost_workflow,
+      xgboost_model_final_params,
+      make_final_workflow
+    ) %>% 
+      set_names(parameters_to_model)
   ),
-  
+
   tar_target(
     xgboost_model_final_fit,
-    make_final_model_fit(xgboost_workflow_final, train_test_split)
+    map2(
+      xgboost_workflow_final,
+      train_test_split,
+      make_final_model_fit
+    ) %>% 
+      set_names(parameters_to_model)
   ),
-  
+
   tar_target(
     prediction_testsplit,
-    predict_final_model_fit_on_testsplit(xgboost_workflow_final, train_test_split)
+    map2(
+      xgboost_workflow_final,
+      train_test_split,
+      predict_final_model_fit_on_testsplit
+    ) %>% 
+      set_names(parameters_to_model)
   ),
   
-  
+  ####
   # tar_target(
   #   xgboost_workflow_final,
   #   fit_best_model_on_training_split(xgboost_model_final, preprocessing_recipe, train_test_split)
   # ),
   
 
-# Plots -------------------------------------------------------------------
+  # Plots -------------------------------------------------------------------
+
+  
+  
+  tar_target(
+    plot_violin_distribution_targets,
+    make_plot_violin_distribution_targets(
+      back_vals_filter_sf,
+      parameters_to_model
+    )
+  ),
+  
+  tar_target(
+    plot_histogram_distribution_features,
+    make_plot_histogram_distribution_features(
+      data_features_depth_added,
+      20
+    )
+  ),
+  
+  tar_target(
+    interactive_correlation_plot,
+    make_interactive_correlation_plot(
+      data_features_depth_added
+    )
+  ),
+
 
   tar_target(
     plot_train_test_split,
-    make_plot_train_test_split(train_test_split)
+    imap(
+      train_test_split,
+      make_plot_train_test_split
+    )
   ),
 
   tar_target(
     plot_feature_importance,
-    make_plot_feature_importance(xgboost_model_final_fit)
+    imap(
+      xgboost_model_final_fit,
+      make_plot_feature_importance
+    )
   ),
 
   tar_target(
     plot_observed_vs_predicted,
-    make_plot_observed_vs_predicted(prediction_testsplit, target_ca_mg_l)
+    imap(
+      prediction_testsplit,
+      make_plot_observed_vs_predicted
+    )
   ),
 
   tar_target(
     plot_residuals_vs_predicted,
-    make_plot_residuals_vs_predicted(prediction_testsplit, target_ca_mg_l)
+    imap(
+      prediction_testsplit,
+      make_plot_residuals_vs_predicted
+    )
+  ),
+
+  # Report ------------------------------------------------------------------
+
+  tar_render(
+    report,
+    "macro_modelling_boosting.Rmd"
   )
 
   
   
 )
 
-tar_pipeline(targets)
 
 
 # targets::tar_make_future(workers = future::availableCores())
