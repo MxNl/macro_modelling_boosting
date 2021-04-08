@@ -1,0 +1,1 @@
+targets::tar_make_future(workers = future::availableCores() - 1)

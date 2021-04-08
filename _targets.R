@@ -65,10 +65,10 @@ targets <- list(
 
   # Data preparation --------------------------------------------------------
 
-  tar_target(
-    data_features_wo_orientations,
-    summarise_orientations(data_features)
-  ),
+  # tar_target(
+  #   data_features_wo_orientations,
+  #   summarise_orientations(data_features)
+  # ),
 
   tar_target(
     back_vals_filter_allpositive_sf,
@@ -79,7 +79,7 @@ targets <- list(
     data_features_depth_added,
     add_feature_depth(
       back_vals_filter_allpositive_sf,
-      data_features_wo_orientations
+      data_features
     )
   ),
 
