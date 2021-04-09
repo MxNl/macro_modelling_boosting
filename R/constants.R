@@ -1,3 +1,8 @@
+# Program Configuration
+YML_CONFIG <- yaml::read_yaml('config.yml')
+
+RUN_MODE <- purrr::chuck(YML_CONFIG, "run_mode")
+
 CRS_REFERENCE <- 25832
 CRS_LEAFLET <- 3857
 TRAIN_TEST_SPLIT_PROPORTION <- .8
@@ -12,7 +17,16 @@ ALPHA_BARS <- .7
 ALPHA_POINTS <- .3
 NUMBER_OF_FOLDS <- 5
 NUMBER_OF_STRATA_BREAKS <- 10
-NUMBER_OF_HYPERPARAMETER_COMBINATIONS <- 50
+
+if(RUN_MODE == "test") {
+  NUMBER_OF_HYPERPARAMETER_COMBINATIONS <- 3
+} else if(RUN_MODE == "full") {
+  NUMBER_OF_HYPERPARAMETER_COMBINATIONS <- 50
+} else {
+  stop("Please provide a valid value for the run_mode in config.yml. Currently supported values are : 'test' and 'full'")
+}
+
+
 PERFORMANCE_METRIC_FOR_BESTMODEL_SELECTION <- "rmse"
 COLOUR_SCHEME <- 
   c(

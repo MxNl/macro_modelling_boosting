@@ -36,7 +36,7 @@ library(knitr)
 ```{r, echo = FALSE}
 source("R/processing_functions.R")
 source("R/markdown.R")
-source("R/config.R")
+source("R/constants.R")
 ```
 
 
@@ -215,8 +215,7 @@ plots_model_params <-
       labs(x = "parameter")
   })
 
-plots_model_params %>%
-  names() %>%
+tar_read(parameters_to_model) %>%
   parameter_pretty_markdown(with_unit = FALSE) %>% 
   map2(plots_model_params, ~create_section(.y, .x, 3))
 ```

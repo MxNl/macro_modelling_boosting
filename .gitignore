@@ -41,4 +41,7 @@ vignettes/*.pdf
 # targets
 /_targets
 
+# Others
+config.yml
+
 *.html
