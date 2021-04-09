@@ -16,6 +16,20 @@
       "Repository": "CRAN",
       "Hash": "8f9ce74c6417d61f0782cbae5fd2b7b0"
     },
+    "DALEX": {
+      "Package": "DALEX",
+      "Version": "2.2.0",
+      "Source": "Repository",
+      "Repository": "CRAN",
+      "Hash": "d6b7e205633ad58b143a95e4f56c1f75"
+    },
+    "DALEXtra": {
+      "Package": "DALEXtra",
+      "Version": "2.0",
+      "Source": "Repository",
+      "Repository": "CRAN",
+      "Hash": "cadc5a294540ad3cd64b958da45b1015"
+    },
     "DBI": {
       "Package": "DBI",
       "Version": "1.1.0",
@@ -679,6 +693,13 @@
       "Repository": "CRAN",
       "Hash": "a525aba14184fec243f9eaec62fbed43"
     },
+    "iBreakDown": {
+      "Package": "iBreakDown",
+      "Version": "1.3.1",
+      "Source": "Repository",
+      "Repository": "CRAN",
+      "Hash": "245ce2a0fdffa5361ab549a64f00e2cd"
+    },
     "igraph": {
       "Package": "igraph",
       "Version": "1.2.6",
@@ -692,6 +713,13 @@
       "Source": "Repository",
       "Repository": "CRAN",
       "Hash": "f155de6e70e7746b970e6f95de2439dd"
+    },
+    "ingredients": {
+      "Package": "ingredients",
+      "Version": "2.0.1",
+      "Source": "Repository",
+      "Repository": "CRAN",
+      "Hash": "0af3bf9006e6b5f8c8b8a7225aa090f4"
     },
     "ipred": {
       "Package": "ipred",
@@ -1118,6 +1146,13 @@
       "Repository": "CRAN",
       "Hash": "88b9f48c93d17cdb811b54079a6a414f"
     },
+    "rappdirs": {
+      "Package": "rappdirs",
+      "Version": "0.3.3",
+      "Source": "Repository",
+      "Repository": "CRAN",
+      "Hash": "5e3c5dc0b071b21fa128676560dbe94d"
+    },
     "raster": {
       "Package": "raster",
       "Version": "3.4-5",
@@ -1180,6 +1215,13 @@
       "Source": "Repository",
       "Repository": "CRAN",
       "Hash": "b06bfb3504cc8a4579fd5567646f745b"
+    },
+    "reticulate": {
+      "Package": "reticulate",
+      "Version": "1.18",
+      "Source": "Repository",
+      "Repository": "CRAN",
+      "Hash": "fbd35cac6ae7554d0e4f440bca1adf3a"
     },
     "rio": {
       "Package": "rio",
