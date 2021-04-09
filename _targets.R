@@ -15,7 +15,7 @@ source("R/model.R")
 source("R/tuning_settings.R")
 source("R/workflow.R")
 source("R/tuning.R")
-source("R/config.R")
+source("R/constants.R")
 
 options(tidyverse.quiet = TRUE)
 tar_option_set(packages = c("parallel",
@@ -27,6 +27,8 @@ tar_option_set(packages = c("parallel",
                             "ggtext",
                             "glue",
                             "vip",
+                            "xgboost",
+                            "treesnip",
                             "ggpointdensity",
                             "tidymodels",
                             "tidyverse",
@@ -63,39 +65,43 @@ list(
 
   # Data preparation --------------------------------------------------------
 
-  # tar_target(
-  #   data_features_wo_orientations,
-  #   summarise_orientations(data_features)
-  # ),
+  tar_target(
+    data_features_cleaner_names,
+    cleaner_feature_names(data_features)
+  ),
 
   tar_target(
+    back_vals_run_mode,
+    filter_samples_run_mode(back_vals_filter_sf)
+  ),
+  
+  tar_target(
     back_vals_filter_allpositive_sf,
-    remove_negative_concentration_values(back_vals_filter_sf)
+    remove_negative_concentration_values(back_vals_run_mode)
   ),
 
   tar_target(
     data_features_depth_added,
     add_feature_depth(
       back_vals_filter_allpositive_sf,
-      data_features
+      data_features_cleaner_names
     )
   ),
 
   tar_target(
     parameters_to_model,
-    HYDROGEOCHEMICAL_PARAMS_MAJOR_IONS#[c(1, 8)]
+      select_params_run_mode(HYDROGEOCHEMICAL_PARAMS_MAJOR_IONS)
   ),
   
   tar_target(
     data_features_target,
-    map(
-      parameters_to_model,
-      ~bind_target_to_features_and_filter_NA_rows(
+    bind_target_to_features_and_filter_NA_rows(
       back_vals_filter_allpositive_sf,
       data_features_depth_added,
-      .
-      )
-    )
+      parameters_to_model
+      ),
+    pattern = map(parameters_to_model),
+    iteration = "list"
   ),
   
 
@@ -103,28 +109,29 @@ list(
 
   tar_target(
     train_test_split,
-    map(
-      data_features_target,
-      make_train_test_split
-    ) %>% 
-      set_names(parameters_to_model)
+    make_train_test_split(
+      data_features_target
+    ),
+    pattern = map(data_features_target),
+    iteration = "list"
   ),
 
   tar_target(
     resampling_strategy_cv,
-    map(
-      train_test_split,
-      make_resampling_strategy
-    )
+    make_resampling_strategy(
+      train_test_split
+    ),
+    pattern = map(train_test_split),
+    iteration = "list"
   ),
 
   tar_target(
     preprocessing_recipe,
-    map(
-      train_test_split,
-      make_recipe
-    ) %>% 
-      set_names(parameters_to_model)
+    make_recipe(
+      train_test_split
+    ),
+    pattern = map(train_test_split),
+    iteration = "list"
   ),
 
   tar_target(
@@ -144,60 +151,61 @@ list(
 
   tar_target(
     xgboost_workflow,
-    map(
-      preprocessing_recipe,
-      ~make_workflow(xgboost_model, .)
-    ) %>% 
-      set_names(parameters_to_model)
+    make_workflow(
+      xgboost_model,
+      preprocessing_recipe
+      ),
+    pattern = map(preprocessing_recipe),
+    iteration = "list"
   ),
 
   tar_target(
     xgboost_tuned,
-    map2(
-      xgboost_workflow,
-      resampling_strategy_cv,
-      ~tune_model(.x, .y, xgboost_grid)
-    ) %>% 
-      set_names(parameters_to_model)
+    tune_model(
+      xgboost_workflow, 
+      resampling_strategy_cv, 
+      xgboost_grid
+      ),
+    pattern = map(xgboost_workflow, resampling_strategy_cv),
+    iteration = "list",
+    deployment = "main"
   ),
 
   tar_target(
     xgboost_model_final_params,
-    map(
-      xgboost_tuned,
-      get_best_model_params
-    ) %>% 
-      set_names(parameters_to_model)
+    get_best_model_params(xgboost_tuned),
+    pattern = map(xgboost_tuned),
+    iteration = "list"
   ),
 
   tar_target(
     xgboost_workflow_final,
-    map2(
+    make_final_workflow(
       xgboost_workflow,
-      xgboost_model_final_params,
-      make_final_workflow
-    ) %>% 
-      set_names(parameters_to_model)
+      xgboost_model_final_params
+      ),
+    pattern = map(xgboost_workflow, xgboost_model_final_params),
+    iteration = "list"
   ),
 
   tar_target(
     xgboost_model_final_fit,
-    map2(
+    make_final_model_fit(
       xgboost_workflow_final,
-      train_test_split,
-      make_final_model_fit
-    ) %>% 
-      set_names(parameters_to_model)
+      train_test_split
+    ),
+    pattern = map(xgboost_workflow_final, train_test_split),
+    iteration = "list"
   ),
 
   tar_target(
     prediction_testsplit,
-    map2(
+    predict_final_model_fit_on_testsplit(
       xgboost_workflow_final,
-      train_test_split,
-      predict_final_model_fit_on_testsplit
-    ) %>% 
-      set_names(parameters_to_model)
+      train_test_split
+    ),
+    pattern = map(xgboost_workflow_final, train_test_split),
+    iteration = "list"
   ),
   
   ####
@@ -238,7 +246,8 @@ list(
   tar_target(
     plot_train_test_split,
     imap(
-      train_test_split,
+      train_test_split %>% 
+        set_names(parameters_to_model),
       make_plot_train_test_split
     )
   ),
@@ -246,7 +255,8 @@ list(
   tar_target(
     plot_feature_importance,
     imap(
-      xgboost_model_final_fit,
+      xgboost_model_final_fit %>% 
+        set_names(parameters_to_model),
       make_plot_feature_importance
     )
   ),
@@ -254,7 +264,8 @@ list(
   tar_target(
     plot_observed_vs_predicted,
     imap(
-      prediction_testsplit,
+      prediction_testsplit %>% 
+        set_names(parameters_to_model),
       make_plot_observed_vs_predicted
     )
   ),
@@ -262,7 +273,8 @@ list(
   tar_target(
     plot_residuals_vs_predicted,
     imap(
-      prediction_testsplit,
+      prediction_testsplit %>% 
+        set_names(parameters_to_model),
       make_plot_residuals_vs_predicted
     )
   ),

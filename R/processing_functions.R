@@ -10,6 +10,16 @@ summarise_orientations <-
       pivot_wider(names_from = c("feature", "class"))
   }
 
+cleaner_feature_names <- 
+  function(features){
+    feature_names <- 
+      features %>% 
+      names()
+    
+    features %>% 
+      set_names(str_remove(feature_names, pattern = "_0$"))
+  }
+
 
 remove_negative_concentration_values <- 
   function(x){
@@ -38,6 +48,18 @@ bind_target_to_features_and_filter_NA_rows <-
       drop_na(everything())
   }
 
+filter_samples_run_mode <- 
+  function(sf_points){
+    if(RUN_MODE == "test") {
+      sf_points %>% 
+        slice_sample(prop = 0.1)
+    } else if(RUN_MODE == "full") {
+      sf_points
+    } else {
+      stop("Please provide a valid value for the run_mode in config.yml. Currently supported values are : 'test' and 'full'")
+    }
+  }
+
 add_feature_depth <- 
   function(sf_points, features){
     #### Test
@@ -54,6 +76,19 @@ add_feature_depth <-
       left_join(features, by = "station_id") %>% 
       rename(sampledepth_sampledepth = sample_depth)
   }
+
+select_params_run_mode <- 
+  function(hydrogeochemical_params){
+    if(RUN_MODE == "test") {
+      hydrogeochemical_params[c(1, length(hydrogeochemical_params))]
+    } else if(RUN_MODE == "full") {
+      hydrogeochemical_params
+    } else {
+      stop("Please provide a valid value for the run_mode in config.yml. Currently supported values are : 'test' and 'full'")
+    }
+  }
+
+
 
 tibble_to_sf <- 
   function(x, sf_points = tar_read(back_vals_filter_sf)){

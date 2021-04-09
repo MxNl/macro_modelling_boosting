@@ -15,8 +15,8 @@ library(tidyverse)
 
 tar_read(data_features_wo_orientations)
 data_features_target <- tar_read(data_features_target)
-data_features <- tar_read(data_features)
-back_vals_filter_sf <- tar_read(back_vals_filter_sf)
+features <- tar_read(data_features)
+back_vals_filter_sf <- tar_read(batarck_vals_filter_sf)
 preprocessing_recipe <- tar_read(preprocessing_recipe)
 xgboost_model_final <- tar_read(xgboost_model_final)
 train_test_split <- tar_read(train_test_split)
@@ -36,6 +36,27 @@ tar_read(plot_observed_vs_predicted) %>%
       scale_x_log10() +
       scale_y_log10()
   })
+
+data_features_target <- tar_read(data_features_target)[[1]]
+library(DALEX)
+library(DALEXtra)
+
+dalex_test <- tar_read(xgboost_model_final_fit) %>% 
+   chuck(1) %>% 
+   explain_tidymodels(data = data_features_target, y = data_features_target$target)
+
+dalex_test %>% 
+   model_performance() %>% 
+   plot()
+
+
+tar_read(xgboost_tuned) %>% 
+   chuck(10) %>% 
+   slice(1) %>% 
+   pull(.notes) %>% 
+   chuck(1) %>% 
+   slice(1) %>% 
+   pull(.notes)
 
 options(viewer = NULL) # view in browser
 

@@ -123,8 +123,8 @@ make_interactive_correlation_plot <-
   function(features, focus_n_maxcorr = 20) {
     #### Test
     # features <- tar_read(data_features_depth_added)
+    # focus_n_maxcorr <- 20
     ###
-    
     plot_data <- 
       features %>%
       select(-contains("coord"), -station_id) %>%
@@ -142,7 +142,7 @@ make_interactive_correlation_plot <-
     
     plot <-
       plot_data %>% 
-      corrr::rearrange() %>% 
+      # corrr::rearrange() %>%
       corrr::shave(upper = FALSE) %>% 
       corrr::stretch() %>% 
       filter(x %in% columns_to_keep & y %in% columns_to_keep) %>% 

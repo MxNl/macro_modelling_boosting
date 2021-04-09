@@ -10,7 +10,7 @@ make_tuning_parameter_set <-
 
 make_tuning_strategy <-
   function(tuning_parameter_set) {
-    dials::grid_max_entropy(
+    dials::grid_latin_hypercube(
       tuning_parameter_set,
       size = NUMBER_OF_HYPERPARAMETER_COMBINATIONS
     )
