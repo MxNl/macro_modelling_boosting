@@ -1,5 +1,5 @@
 tune_model <-
-  function(workflow, resampling_strategy, tuning_strategy) {
+  function(workflow, resampling_strategy, tuning_strategy, control_grid_stack) {
     all_cores <- parallel::detectCores(logical = FALSE)
     cluster <- makePSOCKcluster(all_cores)
     registerDoParallel(cluster)
@@ -10,7 +10,7 @@ tune_model <-
         resamples = resampling_strategy,
         grid = tuning_strategy,
         metrics = yardstick::metric_set(rmse, rsq, mae),
-        control = tune::control_grid(verbose = TRUE)
+        control = control_grid_stack
       )
     
     stopCluster(cluster)
@@ -55,6 +55,11 @@ predict_final_model_fit_on_testsplit <-
   function(workflow, train_test_split_object) {
     workflow %>%
       last_fit(train_test_split_object)
+  }
+
+make_stack_control_grid <- 
+  function() {
+    control_stack_grid()
   }
 
 

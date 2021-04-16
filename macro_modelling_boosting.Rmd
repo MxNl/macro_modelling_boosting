@@ -31,6 +31,7 @@ options(tidyverse.quiet = TRUE)
 library(skimr)
 library(visdat)
 library(knitr)
+library(tidyverse)
 ```
 
 ```{r, echo = FALSE}
@@ -175,7 +176,7 @@ tar_read(plot_histogram_distribution_features)
 
 Now, we can look at the correlations between the highest correlated features.
 ```{r, echo = TRUE, fig.height=8}
-tar_read(interactive_correlation_plot)
+tar_read(plot_xgb_interactive_correlation)
 ```
 
 # Preprocessing
@@ -224,8 +225,8 @@ tar_read(parameters_to_model) %>%
 
 ## Performance {.tabset}
 ```{r, echo = FALSE, results = "asis"}
-plot_observed_vs_predicted <- tar_read(plot_observed_vs_predicted)
-plot_residuals_vs_predicted <- tar_read(plot_residuals_vs_predicted)
+plot_observed_vs_predicted <- tar_read(plot_xgb_observed_vs_predicted)
+plot_residuals_vs_predicted <- tar_read(plot_xgb_residuals_vs_predicted)
 
 names_pretty <-
   plot_observed_vs_predicted %>%
@@ -250,7 +251,7 @@ for (i in seq_along(names_pretty)) {
 ## Feature Importance {.tabset}
 
 ```{r, echo = FALSE, results = "asis"}
-plot_feature_importance <- tar_read(plot_feature_importance)
+plot_feature_importance <- tar_read(plot_xgb_feature_importance)
 
 plot_feature_importance %>%
   names() %>%
