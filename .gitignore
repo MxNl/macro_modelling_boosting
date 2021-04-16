@@ -45,4 +45,4 @@ vignettes/*.pdf
 config.yml
 
 *.html
-!vEGU_display_material_maximilian_noelscher.html
+!index.html
