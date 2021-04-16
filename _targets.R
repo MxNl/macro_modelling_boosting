@@ -7,6 +7,7 @@ library(future)
 
 source("R/import_functions.R")
 source("R/plot_functions.R")
+source("R/ensembling.R")
 source("R/processing_functions.R")
 source("R/train_test_split.R")
 source("R/resampling.R")
@@ -28,11 +29,16 @@ tar_option_set(packages = c("parallel",
                             "glue",
                             "vip",
                             "xgboost",
+                            "nnet",
                             "treesnip",
+                            "stacks",
                             "ggpointdensity",
                             "tidymodels",
                             "tidyverse",
-                            "sf"))
+                            "sf"),
+               # error = "continue",
+               garbage_collection = TRUE,
+               memory = "transient")
 
 
 # plan(multisession)
@@ -41,6 +47,9 @@ tar_option_set(packages = c("parallel",
 # Define targets
 list(
   # Data import -------------------------------------------------------------
+
+
+  ## Modelling ---------------------------------------------------------------
 
   tar_target(
     filepath_back_vals_filter_sf,
@@ -61,8 +70,25 @@ list(
     data_features,
     read_rds(filepath_features)
   ),
+  
+  ## Background Information ---------------------------------------------------------------
 
-
+  tar_target(
+    filepath_back_vals_2005,
+    "J:/NUTZER/Noelscher.M/Studierende/Daten/hydrogeochemical_background_values/germany/multi_time/tabular/hintergrundwerte_bgr/data/point_data/reprojected/tbl_hgc_pkt_2005"
+  ),
+  tar_target(
+    back_vals_2005,
+    read_background_values(filepath_back_vals_2005)
+  ),
+  
+  tar_target(
+    back_vals_2005_clean_sf,
+    make_background_values_clean(
+      back_vals_2005
+    )
+  ),
+  
   # Data preparation --------------------------------------------------------
 
   tar_target(
@@ -107,6 +133,13 @@ list(
 
   # Modelling ---------------------------------------------------------------
 
+  ## Single Parameters -------------------------------------------------------
+
+  tar_target(
+    control_grid_stack,
+    make_stack_control_grid()
+  ), 
+
   tar_target(
     train_test_split,
     make_train_test_split(
@@ -115,7 +148,7 @@ list(
     pattern = map(data_features_target),
     iteration = "list"
   ),
-
+  
   tar_target(
     resampling_strategy_cv,
     make_resampling_strategy(
@@ -124,7 +157,7 @@ list(
     pattern = map(train_test_split),
     iteration = "list"
   ),
-
+  
   tar_target(
     preprocessing_recipe,
     make_recipe(
@@ -133,20 +166,22 @@ list(
     pattern = map(train_test_split),
     iteration = "list"
   ),
+  
+  ### Xgboost -----------------------------------------------------------------
 
   tar_target(
     xgboost_model,
-    make_model()
+    make_xgboost_model()
   ),
 
   tar_target(
     xgboost_params,
-    make_tuning_parameter_set()
+    make_xgboost_tuning_parameter_set()
   ),
 
   tar_target(
     xgboost_grid,
-    make_tuning_strategy(xgboost_params)
+    make_xgboost_tuning_strategy(xgboost_params)
   ),
 
   tar_target(
@@ -164,13 +199,96 @@ list(
     tune_model(
       xgboost_workflow, 
       resampling_strategy_cv, 
-      xgboost_grid
+      xgboost_grid,
+      control_grid_stack
       ),
     pattern = map(xgboost_workflow, resampling_strategy_cv),
     iteration = "list",
     deployment = "main"
   ),
 
+
+  ### Neural Net --------------------------------------------------------------
+
+  tar_target(
+    nnet_model,
+    make_neuralnet_model()
+  ),
+  
+  tar_target(
+    nnet_params,
+    make_nnet_tuning_parameter_set()
+  ),
+  
+  tar_target(
+    nnet_grid,
+    make_nnet_tuning_strategy(nnet_params)
+  ),
+  
+  tar_target(
+    nnet_workflow,
+    make_workflow(
+      nnet_model,
+      preprocessing_recipe
+    ),
+    pattern = map(preprocessing_recipe),
+    iteration = "list"
+  ),
+  
+  tar_target(
+    nnet_tuned,
+    tune_model(
+      nnet_workflow, 
+      resampling_strategy_cv, 
+      nnet_grid,
+      control_grid_stack
+    ),
+    pattern = map(nnet_workflow, resampling_strategy_cv),
+    iteration = "list",
+    deployment = "main"
+  ),
+
+  ### Ensemble ----------------------------------------------------------------
+
+  tar_target(
+    data_stack,
+    make_stack(xgboost_tuned, nnet_tuned),
+    pattern = map(xgboost_tuned, nnet_tuned),
+    iteration = "list"
+  ),
+  
+  tar_target(
+    model_stack,
+    blend_predictions(data_stack),
+    pattern = map(data_stack),
+    iteration = "list",
+    deployment = "main"
+  ),
+  
+
+  ### Ensemble Finalization ---------------------------------------------------
+  
+  tar_target(
+    model_stack_fitted,
+    fit_members(model_stack),
+    pattern = map(model_stack),
+    iteration = "list",
+    deployment = "main"
+  ),
+
+  tar_target(
+    model_stack_predictions,
+    train_test_split %>% 
+      testing() %>% 
+      predict(model_stack_fitted, .) %>% 
+      bind_cols(),
+    pattern = map(train_test_split, model_stack_fitted),
+    iteration = "list",
+    deployment = "main"
+  ),
+  
+  ### XGBoost Finalization ---------------------------------------------------
+  
   tar_target(
     xgboost_model_final_params,
     get_best_model_params(xgboost_tuned),
@@ -207,20 +325,26 @@ list(
     pattern = map(xgboost_workflow_final, train_test_split),
     iteration = "list"
   ),
-  
-  ####
-  # tar_target(
-  #   xgboost_workflow_final,
-  #   fit_best_model_on_training_split(xgboost_model_final, preprocessing_recipe, train_test_split)
-  # ),
-  
 
   # Plots -------------------------------------------------------------------
 
+
+  ## Base Plots --------------------------------------------------------------
+
+  # tar_target(
+  #   plot_locations_overview,
+  #   make_locations_overview_plot(
+  #     data_features_target,
+  #     back_vals_filter_allpositive_sf,
+  #     back_vals_2005_clean_sf,
+  #     parameters_to_model
+  #   )
+  # ),
   
-  
+  ## Single XGBoost ----------------------------------------------------------
+
   tar_target(
-    plot_violin_distribution_targets,
+    plot_xgb_violin_distribution_targets,
     make_plot_violin_distribution_targets(
       back_vals_filter_sf,
       parameters_to_model
@@ -228,7 +352,7 @@ list(
   ),
   
   tar_target(
-    plot_histogram_distribution_features,
+    plot_xgb_histogram_distribution_features,
     make_plot_histogram_distribution_features(
       data_features_depth_added,
       20
@@ -236,7 +360,7 @@ list(
   ),
   
   tar_target(
-    interactive_correlation_plot,
+    plot_xgb_interactive_correlation,
     make_interactive_correlation_plot(
       data_features_depth_added
     )
@@ -244,7 +368,7 @@ list(
 
 
   tar_target(
-    plot_train_test_split,
+    plot_xgb_train_test_split,
     imap(
       train_test_split %>% 
         set_names(parameters_to_model),
@@ -253,7 +377,7 @@ list(
   ),
 
   tar_target(
-    plot_feature_importance,
+    plot_xgb_feature_importance,
     imap(
       xgboost_model_final_fit %>% 
         set_names(parameters_to_model),
@@ -262,7 +386,7 @@ list(
   ),
 
   tar_target(
-    plot_observed_vs_predicted,
+    plot_xgb_observed_vs_predicted,
     imap(
       prediction_testsplit %>% 
         set_names(parameters_to_model),
@@ -271,7 +395,7 @@ list(
   ),
 
   tar_target(
-    plot_residuals_vs_predicted,
+    plot_xgb_residuals_vs_predicted,
     imap(
       prediction_testsplit %>% 
         set_names(parameters_to_model),
@@ -279,15 +403,29 @@ list(
     )
   ),
 
+  ## Ensemble
+  
+  # tar_target(
+  #   plot_ensemble_member_weights,
+  #   make_ensemble_member_weights_plot(
+  #     model_stack
+  #   ),
+  #   pattern = map(model_stack),
+  #   iteration = "list"
+  # ),
+  
   # Report ------------------------------------------------------------------
 
   tar_render(
     report,
     "macro_modelling_boosting.Rmd"
+  ),
+
+  tar_render(
+    vegu_display_materials,
+    "vEGU_display_material_maximilian_noelscher.Rmd"
   )
 
-  
-  
 )
 
 

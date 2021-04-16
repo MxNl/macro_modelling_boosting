@@ -8,6 +8,7 @@ library(doParallel)
 library(sf)
 library(vip)
 library(tidymodels)
+library(stacks)
 library(leafgl)
 library(leaflet)
 library(tidyverse)
@@ -30,12 +31,29 @@ xgboost_tuned <- tar_read(xgboost_tuned)
 tar_read(interactive_correlation_plot)
 tar_read(plot_train_test_split)
 tar_read(plot_feature_importance)
-tar_read(plot_observed_vs_predicted) %>%
-  map(function(x) {
-    x +
-      scale_x_log10() +
-      scale_y_log10()
-  })
+
+
+tar_read(plot_train_test_split)
+tar_read(back_vals_filter_allpositive_sf) %>% 
+   select(station_id, all_of(tar_read(parameters_to_model))) %>% 
+   filter(station_id %in% pull(tar_read(data_features_depth_added), station_id)) %>% 
+   drop_na(ca_mg_l)
+   
+
+tar_read(data_features_target) %>% 
+   reduce(left_join, by = "station_id") %>% 
+   select(station_id) %>% 
+   inner_join(tar_read(back_vals_filter_allpositive_sf), .) %>% 
+   select(station_id, all_of(tar_read(parameters_to_model))) %>%
+   pivot_longer(cols = tar_read(parameters_to_model)) %>% 
+   drop_na(value) %>% 
+   group_by(station_id) %>% 
+   summarise(n = n()) %>% 
+   inner_join(tar_read(back_vals_filter_allpositive_sf), .) %>% 
+   select(station_id, n, all_of(tar_read(parameters_to_model))) %>% 
+   mapview::mapview(zcol = "n", lwd = 0, alpha = .1, cex = 2)
+   
+
 
 data_features_target <- tar_read(data_features_target)[[1]]
 library(DALEX)
@@ -49,9 +67,39 @@ dalex_test %>%
    model_performance() %>% 
    plot()
 
+test <- tar_read(model_stack) %>% 
+   chuck(1) %>% 
+   blend_predictions()
 
-tar_read(xgboost_tuned) %>% 
-   chuck(10) %>% 
+test %>% 
+   autoplot(type = "weights")
+
+xgb <- tar_read(xgboost_tuned) %>% 
+   chuck(1)
+
+nnet <- tar_read(nnet_tuned) %>% 
+   chuck(1)
+   
+stacks::stacks() %>% 
+   stacks::add_candidates(xgb) %>%
+   stacks::add_candidates(nnet)
+   
+plot_data <- 
+   tar_read(prediction_testsplit) %>% 
+   set_names(tar_read(parameters_to_model)) %>% 
+   chuck(1) %>% 
+   collect_predictions()
+
+
+   yardstick::metrics(
+      truth = target,
+      estimate = .pred
+   ) %>%
+   mutate(.metric = str_to_upper(.metric)) %>%
+   mutate(.metric = replace(.metric, .metric == "RSQ", "R<sup>2</sup>")) %>%
+   mutate(.estimate = signif(.estimate, 3))
+
+xgb %>% 
    slice(1) %>% 
    pull(.notes) %>% 
    chuck(1) %>% 

@@ -20,6 +20,41 @@ cleaner_feature_names <-
       set_names(str_remove(feature_names, pattern = "_0$"))
   }
 
+make_background_values_clean <-
+  function(object) {
+    object %>%
+      janitor::clean_names() %>%
+      janitor::remove_empty(c("rows", "cols")) %>%
+      rename(
+        date = sample_datet,
+        x_coord = x,
+        y_coord = y,
+        sample_depth = filter_ok_m_u_gok,
+        sample_id = stprj_stat_smp_id
+      ) %>%
+      mutate(station_id = str_c(!!sym(STATION_ID[1]), !!sym(STATION_ID[2]), sep = "_")) %>% 
+      select(
+        station_id,
+        sample_id,
+        date,
+        x_coord,
+        y_coord,
+        sample_depth,
+        stype,
+        state,
+        strati1,
+        lage,
+        one_of(HYDROGEOCHEMICAL_PARAMS)
+      ) %>%
+      mutate(station_id = as.character(station_id)) %>%
+      mutate(date = lubridate::dmy(str_sub(date, end = 10))) %>%
+      mutate(station_id = as.factor(station_id)) %>%
+      mutate(date = na_if(date, as.Date("1900-01-01"))) %>% 
+      mutate(date = replace_na(date, as.Date("2010-01-01"))) %>% 
+      st_as_sf(coords = c("x_coord", "y_coord")) %>%
+      st_sf(crs = 25832) %>% 
+      st_transform(crs = CRS_REFERENCE)
+  }
 
 remove_negative_concentration_values <- 
   function(x){

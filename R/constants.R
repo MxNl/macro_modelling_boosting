@@ -3,6 +3,13 @@ YML_CONFIG <- yaml::read_yaml('config.yml')
 
 RUN_MODE <- purrr::chuck(YML_CONFIG, "run_mode")
 
+
+# Hard Copied from MOHP Data Preparation
+MIN_SAMPLE_DATE <- "1990-01-01"
+MAX_SAMPLE_DEPTH <- 100
+STATION_ID <- c("stprj_id", "stat_id")
+
+
 CRS_REFERENCE <- 25832
 CRS_LEAFLET <- 3857
 TRAIN_TEST_SPLIT_PROPORTION <- .8
@@ -20,8 +27,10 @@ NUMBER_OF_STRATA_BREAKS <- 10
 
 if(RUN_MODE == "test") {
   NUMBER_OF_HYPERPARAMETER_COMBINATIONS <- 3
+  NUMBER_OF_HYPERPARAMETER_COMBINATIONS_NNET <- 3
 } else if(RUN_MODE == "full") {
   NUMBER_OF_HYPERPARAMETER_COMBINATIONS <- 50
+  NUMBER_OF_HYPERPARAMETER_COMBINATIONS_NNET <- 50
 } else {
   stop("Please provide a valid value for the run_mode in config.yml. Currently supported values are : 'test' and 'full'")
 }
