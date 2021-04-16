@@ -244,7 +244,7 @@ make_plot_observed_vs_predicted <-
     
     axis_limits <-
       plot_data %>%
-      pivot_longer(cols = -all_of(c("id", ".row"))) %>%
+      pivot_longer(cols = -all_of(c("id", ".row", ".config"))) %>%
       pull(value) %>%
       range()
     
@@ -350,4 +350,39 @@ make_plot_residuals_vs_predicted <-
             plot.subtitle = element_markdown(),
             plot.title = element_markdown()
             )
+  }
+
+make_locations_overview_plot <-
+  function(model_data, sf_points, parameters) {
+    model_data <- 
+      model_data %>% 
+      reduce(left_join, by = "station_id") %>% 
+      select(station_id) %>% 
+      inner_join(sf_points, .) %>% 
+      select(station_id, all_of(parameters)) %>%
+      pivot_longer(cols = parameters) %>% 
+      drop_na(value) %>% 
+      group_by(station_id) %>% 
+      summarise(n = n()) %>% 
+      inner_join(sf_points, .) %>% 
+      select(station_id, n, all_of(parameters))
+    
+    # discarded_sites <- 
+    #   original_sf_points %>% 
+    #   as_tibble() %>% 
+    #   anti_join(as_tibble(model_data), by = "station_id") %>% 
+    #   inner_join(original_sf_points, .)
+    
+    map <- 
+      model_data %>%
+      # mapview::mapview(alpha.regions = c(0), alpha = .5, cex = 2, color = "red", layer.name = "Discarded sample sites during preprocessing") +
+      mapview::mapview(zcol = "n", lwd = 0, alpha = .1, cex = 2, layer.name = "Sample sites for model training")
+    
+    map@map %>%  leaflet::addMiniMap()
+  }
+
+make_ensemble_member_weights_plot <-
+  function(model_stack) {
+    model_stack %>% 
+      autoplot(type = "weights")
   }

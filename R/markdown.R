@@ -49,7 +49,7 @@ create_section_results <- function(plot1, plot2, title, level) {
   pander::pandoc.header(paste0(title, " {.unnumbered}"), level = level)
   # Section contents
     print(plot1)
-    pander::pandoc.p("To better see what is going on at the point cloud at low values, we show both axis with log10 scales")
+    # pander::pandoc.p("To better see what is going on at the point cloud at low values, we show both axis with log10 scales")
     print(plot1 +
             scale_x_log10() +
             scale_y_log10())
