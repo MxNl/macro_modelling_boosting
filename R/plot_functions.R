@@ -225,7 +225,8 @@ make_plot_feature_importance <-
 make_plot_observed_vs_predicted <-
   function(prediction_testsplit, parameter = .y) {
     ######### Test
-    # prediction_testsplit <- tar_read(prediction_testsplit)
+    # prediction_testsplit <- tar_read(prediction_testsplit) %>% chuck(1)
+    # parameter <- tar_read(parameters_to_model) %>% chuck(1)
     #######
 
     plot_data <-
@@ -251,12 +252,12 @@ make_plot_observed_vs_predicted <-
     label_r_square <-
       tibble(
         .pred = max(axis_limits),
-        target = max(axis_limits),
+        target = 0,
         label = str_c(as.character(glue("<span style='color:grey'> **{metrics$.metric} = {metrics$.estimate}** </span>")), collapse = "<br>"),
         alpha = .4,
         fill = "grey",
         hjust = .8,
-        vjust = .8
+        vjust = 0
       )
 
     plot_data %>%
@@ -274,7 +275,8 @@ make_plot_observed_vs_predicted <-
         alpha = ALPHA_POINTS,
         shape = 16
       ) +
-      scale_color_gradientn(
+      # scale_color_viridis_c()
+    scale_color_gradientn(
         colours = COLOUR_SCHEME,
         breaks=c(1, 150),
         labels=c("low                   high density","")
@@ -289,8 +291,7 @@ make_plot_observed_vs_predicted <-
         aes(
           label = label,
           hjust = hjust,
-          vjust = vjust,
-          alpha = alpha
+          vjust = vjust
         ),
         label.color = NA,
         
@@ -300,7 +301,8 @@ make_plot_observed_vs_predicted <-
       ylim(axis_limits) +
       xlab("Predicted Values") +
       ylab("Observed Values") +
-      labs(title = str_c("**Predicted Values vs. Observed Values - ", parameter_pretty_markdown(parameter), "**"),
+      labs(title = "**Predicted Values vs. Observed Values**",
+           subtitle = parameter_pretty_markdown(parameter),
            colour = "") +
       theme_minimal() +
       theme(legend.position = "top",
@@ -322,7 +324,10 @@ make_plot_residuals_vs_predicted <-
     axis_limits <-
       plot_data %>%
       pull(residual_percent) %>%
-      range()
+      sd() %>%
+      magrittr::multiply_by(10) %>%
+      c(-., .)
+      # range()
     
     plot_data %>%
       ggplot() +
@@ -339,12 +344,14 @@ make_plot_residuals_vs_predicted <-
       guides(colour = guide_colorbar(ticks = FALSE)) +
       xlab("Predicted Values") +
       ylab("Residual [%]") +
-      labs(title = str_c("**Residuals vs. Predicted Values - ", parameter_pretty_markdown(parameter), "**"),
+      labs(title = "**Residuals vs. Predicted Values**", 
+           subtitle = parameter_pretty_markdown(parameter),
            colour = "") +
-      scale_y_continuous(labels = scales::percent,
-                         limits = axis_limits) +
+      scale_y_continuous(
+        # labels = scales::percent,
+        limits = axis_limits) +
       theme_minimal() +
-      theme(legend.position = "top",
+      theme(legend.position = "none",
               legend.justification='left',
               legend.direction='horizontal',
             plot.subtitle = element_markdown(),

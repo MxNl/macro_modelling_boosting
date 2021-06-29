@@ -19,6 +19,8 @@ output:
     #code_folding: show
 bibliography: vEGU_display_material.bib
 nocite: '@*'
+biblio-style: "apalike"
+link-citations: true
 ---
 
 ```{r setup, include=FALSE}
@@ -26,6 +28,7 @@ knitr::opts_chunk$set(echo = FALSE)
 knitr::opts_chunk$set(warning = FALSE)
 knitr::opts_chunk$set(message = FALSE)
 knitr::opts_chunk$set(out.width = "100%")
+knitr::opts_chunk$set(fig.align="center")
 options(tidyverse.quiet = TRUE)
 ```
 
@@ -37,8 +40,12 @@ library(mapview)
 library(knitr)
 library(sf)
 library(ggExtra)
+library(patchwork)
+library(ggtext)
 library(tidyverse)
 ```
+
+
 
 ```{r, echo = FALSE}
 source("R/processing_functions.R")
@@ -47,48 +54,31 @@ source("R/plot_functions.R")
 source("R/constants.R")
 ```
 
-<br />
-This study is part of the [MACRO project](https://www.bgr.bund.de/EN/Themen/Wasser/Projekte/laufend/F+E/Macro/macro_projektbeschr_en.html?nn=1548270)
-<br />
-<br />
+## Evaluation
 
-```{r, fig.cap="MACRO project logo"}
-knitr::include_graphics("logo/MACRO_logo.svg")
-```
-<br />
-<br />
-<br />
-<br />
-<br />
+asdas \@ref(fig:testplot) asda
 
-# Abstract
+### Performance {.tabset}
+```{r testplot, echo = FALSE, results = "asis", fig.cap="testitest"}
+plot_observed_vs_predicted <- tar_read(plot_xgb_observed_vs_predicted)
+plot_residuals_vs_predicted <- tar_read(plot_xgb_residuals_vs_predicted)
 
-```{r}
-target_data <-
-  tar_read(back_vals_filter_allpositive_sf) %>%
-  as_tibble() %>%
-  select(station_id, sample_depth, all_of(tar_read(parameters_to_model))) %>%
-  filter_all(any_vars(complete.cases(.)))
-```
+names_pretty <-
+  plot_observed_vs_predicted %>%
+  names() %>%
+  parameter_pretty_markdown(with_unit = FALSE)
 
-From all measured parameters, only the major anions and cations with the most samples were chosen as target variables to be modeled. Across all these parameters and after all preprocessing steps, `r nrow(target_data)` samples and `r ncol(target_data)` columns, 1 for the station ID (`station_id`), 1 for the sample depth (`sample_depth`) and `r nrow(target_data)- 1` for each target variable remain for the model training.
+for (i in 1:2) {
+  create_section_results(plot_observed_vs_predicted[[i]],
+                         plot_residuals_vs_predicted[[i]],
+                         names_pretty[[i]],
+                         4)
+}
 
-### Location
-
-The locations of the sample sites used for modeling are shown in \@ref(fig:locations) as the number of sample sites per hexagon. The spatial distribution of sampling locations is unbalanced with regions that have few locations and regions with a high density. The latter are mainly concentrated around larger cities in Germany such as Berlin, Hamburg, Frankfurt. The eastern and northern areas of Germany also generally have more sampling sites compared to southern or central Germany.
-
-### Sample Depth
-
-The sample depth which was calculated as mean depth of the screen top and bottom if it was provided. Subsequently, the sample depth was used as feature (predictor variable) during training.
-
-### Data Summary
-The first three rows of the data set containing the target variables after all preprocessing steps is shown in table \@ref(tab:targetdatahead) as an example.
-
-```{r}
-target_data %>% 
-  select(all_of(tar_read(parameters_to_model))) %>% 
-  skim() %>% 
-  .$numeric %>% 
-  knitr::kable(format = "html") %>% 
-  kableExtra::scroll_box(width = "100px")
+# plot_observed_vs_predicted %>%
+#   names() %>%
+#   parameter_pretty_markdown(with_unit = FALSE) %>%
+#   list(plot_observed_vs_predicted,
+#        plot_residuals_vs_predicted) %>%
+#   pmap(~create_section_results(..2, ..1, ..3, 3))
 ```

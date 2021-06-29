@@ -48,11 +48,21 @@ create_section <- function(data, title, level, data_type = "plot") {
 create_section_results <- function(plot1, plot2, title, level) {
   pander::pandoc.header(paste0(title, " {.unnumbered}"), level = level)
   # Section contents
-    print(plot1)
-    # pander::pandoc.p("To better see what is going on at the point cloud at low values, we show both axis with log10 scales")
-    print(plot1 +
+    # print(plot1)
+    # pander::pandoc.p("")
+    plot1_log <- 
+      plot1 +
             scale_x_log10() +
-            scale_y_log10())
+            scale_y_log10() +
+            theme(legend.position = "none",
+                  legend.justification='left',
+                  legend.direction='horizontal',
+                  plot.subtitle = element_markdown(),
+                  plot.title = element_markdown()) +
+            labs(title = "**... with logarithmic axes**",
+                 subtitle = "")
+    
+    print(plot1 | plot1_log)
     print(plot2)
   # a list, formatted as Markdown
   # adding also empty lines, to be sure that this is valid Markdown

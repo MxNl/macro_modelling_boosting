@@ -55,6 +55,103 @@ tar_read(data_features_target) %>%
    
 
 
+####
+
+huek <- 
+   read_sf("//Bgr.local/GZH/daten/Berlin/B22-FISHy/PROJEKTE/Huek250/Produkte/Datenabgabe/huek250-klassisch/Produktcenter/Download/shp/huek250_v103/shp/huek250__25832_v103_poly.shp") %>% 
+   as_tibble() %>% 
+   janitor::clean_names() %>% 
+   distinct(ga_bez, ga)
+
+
+test <- 
+   make_plot_model_performance_per_feature_class(
+   tar_read(train_test_split)[[1]],
+   tar_read(prediction_testsplit)[[1]],
+   huek,
+   hydrogeologyga,
+   ga,
+   ga_bez
+)
+
+train_test_split <- tar_read(train_test_split)[[1]]
+prediction_testsplit <- tar_read(prediction_testsplit)[[1]]
+key_table <- huek
+name_left <- "hydrogeologyga"
+name_right <- "ga"
+name_right_long <- "ga_bez"
+
+make_plot_model_performance_per_feature_class <- 
+   function(train_test_split, prediction_testsplit, key_table, name_left, name_right, name_right_long) {
+      # parameter <- 1
+      
+      test_data <- 
+         train_test_split %>%  
+         testing() %>% 
+         pivot_longer(cols = -all_of(c("station_id", "target"))) %>% 
+         mutate(feature = word(name, sep = "_")) %>% 
+         group_by(station_id, feature) %>% 
+         slice_max(value) %>% 
+         slice(1) %>% 
+         mutate(value = if_else(feature %in% NUMERICAL_FEATURES, 
+                                as.character(value), 
+                                word(name, 2, sep = "_"))) %>% 
+         ungroup() %>% 
+         select(-name) %>% 
+         pivot_wider(id_cols = c("station_id", "target"),
+                     names_from = "feature")
+      
+      test <- 
+         prediction_testsplit %>% 
+         collect_predictions()
+
+      test_data <- 
+         test %>% 
+         select(.pred) %>% 
+         bind_cols(test_data, .)
+      
+      minval <- 
+         test_data %>% 
+         pull(target) %>% 
+         min()
+      maxval <- 
+         test_data %>% 
+         pull(target) %>% 
+         max()
+      
+      test_data %>% 
+         rename("{{name_right}}" := {{name_left}}) %>% 
+         left_join(key_table, by = {{name_right}}) %>% 
+         group_by({{name_right_long}}) %>% 
+         mutate(n = n()) %>% 
+         group_by({{name_right_long}}, n) %>% 
+         mutate(across(c("target", ".pred"), ~(.x - minval)/(maxval - minval))) %>% 
+         rmse(target, .pred) %>% 
+         arrange(-.estimate) %>% 
+         ggplot(aes(reorder({{name_right_long}}, .estimate), .estimate, fill = log10(n))) +
+         geom_col(alpha = .7) +
+         scale_fill_viridis_c() +
+         coord_flip() +
+         theme_minimal() +
+         labs(fill = "Number of test samples in class",
+              y = "RMSE",
+              x = "") +
+         theme(legend.position = "top",
+               legend.direction = "horizontal")
+   }
+
+
+      
+
+
+tar_read(back_vals_filter_allpositive_sf) %>% 
+   select(station_id) %>% 
+   inner_join(test_data, by = "station_id")
+   
+
+test %>% 
+   pull(.predictions)
+
 data_features_target <- tar_read(data_features_target)[[1]]
 library(DALEX)
 library(DALEXtra)

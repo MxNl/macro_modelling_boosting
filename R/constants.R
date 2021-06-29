@@ -63,6 +63,11 @@ FEATURE_NAMES <-
   "feature_hydrogeology_ha"
 )
 
+NUMERICAL_FEATURES <- 
+  c(
+    "aspect", "elevation", "sampledepth", "seepage", "gwrecharge", "precipitation", "slope"
+  )
+
 HYDROGEOCHEMICAL_PARAMS <-
   c(
     "ag_mg_l", "al_mg_l", "ar_mg_l", "as_mg_l",

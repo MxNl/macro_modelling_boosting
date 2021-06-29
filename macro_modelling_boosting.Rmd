@@ -98,7 +98,7 @@ data_targets %>%
 
 To check how the distributions of each target variable looks like, we visualize their values in a violine plot.
 ```{r}
-tar_read(plot_violin_distribution_targets)
+tar_read(plot_xgb_violin_distribution_targets)
 ```
 Alternativle, to also see the true and unscaled values we can additionally plot histograms.
 ```{r, fig.height=8}

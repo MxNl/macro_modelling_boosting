@@ -137,7 +137,7 @@ tibble_to_sf <-
       st_as_sf()
   }
 
-parameter_pretty_markdown <-
+parameter_pretty_markdown <- #TODO rename to parameter_pretty_html
   function(parameter, with_unit = TRUE, markdown = TRUE, bold = FALSE) {
     ######## Test
     # parameter <- HYDROGEOCHEMICAL_PARAMS_MAJOR_IONS
@@ -160,6 +160,43 @@ parameter_pretty_markdown <-
       parameter <-
         parameter %>%
         sub("(\\d)", "<sub>\\1</sub>", .)
+      if (bold) {
+        parameter <-
+          parameter %>%
+          str_c("**", ., "**")
+      } else {
+        parameter
+      }
+    } else {
+      parameter
+    }
+
+    return(parameter)
+  }
+
+parameter_pretty_rmarkdown <-
+  function(parameter, with_unit = TRUE, markdown = TRUE, bold = FALSE) {
+    ######## Test
+    # parameter <- HYDROGEOCHEMICAL_PARAMS_MAJOR_IONS
+    # with_unit <- FALSE
+    # markdown <- TRUE
+    # bold <- TRUE
+    ###
+
+    parameter <- parameter %>%
+      str_to_title() %>%
+      word(sep = "_") %>%
+      str_replace_all("o", "O") %>%
+      str_replace_all("c", "C")
+    # str_replace_all("[:digit:]", "<sub>[:digit:]</sub>") %>%
+    if (with_unit) {
+      parameter <-
+        parameter %>%
+        str_c(" [mg/L]")
+    } else if (markdown) {
+      parameter <-
+        parameter %>%
+        sub("(\\d)", "~\\1~", .)
       if (bold) {
         parameter <-
           parameter %>%
