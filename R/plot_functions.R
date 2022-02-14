@@ -1,8 +1,8 @@
 make_plot_violin_distribution_targets <- 
   function(x, parameters = NULL) {
     ##### TEst
-    # x <- tar_read(back_vals_filter_allpositive_sf)
-    # parameters <- tar_read(parameters_to_model)
+    x <- tar_read(back_vals_filter_allpositive_sf)
+    parameters <- tar_read(parameters_to_model)
     ####
     
   plot_data <- 
@@ -17,11 +17,12 @@ make_plot_violin_distribution_targets <-
       mutate(name = str_replace_all(name, "\\[mg/L\\]", "")) %>% 
       mutate(name = str_replace_all(name, " ", ""))
 
-    plot <- 
-      plot_data %>% 
+    plot_data %>% 
       ggplot(aes(name, value)) +
       geom_violin(fill = COLOUR_HEX_BAR_FILL,
-                  colour = COLOUR_HEX_BAR_FILL) +
+                  colour = COLOUR_HEX_BAR_FILL,
+                  scale = "count",
+                  bw = .1) +
       scale_y_log10() +
       theme_minimal() +
       labs(x = "Parameter",
@@ -32,9 +33,6 @@ make_plot_violin_distribution_targets <-
         axis.text.y = element_markdown()
         ) +
       coord_flip()
-      # facet_wrap(~name, nrow = 1, scales = "free_y")
-    
-    return(plot)
   }
 
 
@@ -393,3 +391,268 @@ make_ensemble_member_weights_plot <-
     model_stack %>% 
       autoplot(type = "weights")
   }
+
+make_sampledatedistribution_plot <-
+  function(x) {
+    x %>%
+      as_tibble() %>%
+      select(date) %>%
+      mutate(
+        date_cat = if_else(date >= MIN_SAMPLE_DATE, "kept", "discarded"),
+        date_cat = factor(date_cat, levels = c("discarded", "kept"))
+      ) %>%
+      ggplot(aes(date, fill = date_cat)) +
+      geom_histogram(
+        alpha = .4,
+        boundary = as.Date(MIN_SAMPLE_DATE)
+      ) +
+      geom_vline(
+        xintercept = as.Date(MIN_SAMPLE_DATE),
+        colour = "grey",
+        linetype = "dashed"
+      ) +
+      geom_label(
+        data = data.frame(x = as.Date(c("1975-11-27", "1975-11-27")), y = c(18598.5577000015, 18598.5577000015), label = c(
+          MIN_SAMPLE_DATE,
+          MIN_SAMPLE_DATE
+        )), mapping = aes(x = x, y = y, label = label),
+        label.padding = unit(0.25, "lines"), label.r = unit(
+          0.1,
+          "lines"
+        ), inherit.aes = FALSE,
+        colour = "grey"
+      ) +
+      geom_curve(data = data.frame(
+        x = as.Date("1981-11-17"), y = 17123.0310652555,
+        xend = as.Date("1988-04-02"), yend = 15336.8672442472
+      ), mapping = aes(
+        x = x,
+        y = y, xend = xend, yend = yend
+      ), arrow = arrow(30L, unit(
+        0.1,
+        "inches"
+      ), "last", "closed"), inherit.aes = FALSE, colour = "grey") +
+      theme_minimal() +
+      theme(legend.position = "top", legend.direction = "horizontal") +
+      labs(
+        fill = "Filter on sample date",
+        x = "Sample date",
+        y = "Number of samples"
+      )
+  }
+
+make_sampledepthdistribution_plot <-
+  function(x) {
+    x %>%
+      as_tibble() %>%
+      filter(date >= MIN_SAMPLE_DATE) %>%
+      select(sample_depth) %>%
+      mutate(
+        depth_cat = if_else(sample_depth <= MAX_SAMPLE_DEPTH, "kept", "discarded"),
+        depth_cat = factor(depth_cat, levels = c("discarded", "kept"))
+      ) %>%
+      ggplot(aes(sample_depth, fill = depth_cat)) +
+      geom_histogram(
+        alpha = .4,
+        boundary = MAX_SAMPLE_DEPTH
+      ) +
+      scale_x_continuous(
+        limits = c(-10, 500)) +
+      geom_vline(
+        xintercept = MAX_SAMPLE_DEPTH ,
+        colour = "grey",
+        linetype = "dashed"
+      ) +
+      geom_label(
+        data = data.frame(x = c(200, 200), y = c(8000, 8000), label = c(
+          str_c(MAX_SAMPLE_DEPTH, " m below ground level")
+        )), mapping = aes(x = x, y = y, label = label),
+        label.padding = unit(0.25, "lines"), label.r = unit(
+          0.1,
+          "lines"
+        ), inherit.aes = FALSE,
+        colour = "grey"
+      ) +
+      geom_curve(data = data.frame(
+        x = 200, y = 7000,
+        xend = 120, yend = 5000
+      ), mapping = aes(
+        x = x,
+        y = y, xend = xend, yend = yend
+      ), curvature = -0.305, arrow = arrow(30L, unit(
+        0.1,
+        "inches"
+      ), "last", "closed"), inherit.aes = FALSE, colour = "grey") +
+      theme_minimal() +
+      theme(legend.position = "top", legend.direction = "horizontal") +
+      labs(
+        fill = "Filter on sample depth",
+        x = "Sample depth",
+        y = "Number of samples"
+      )
+  }
+
+make_measurementdistribution_plot <-
+  function(x) {
+    x %>% 
+      filter(date >= MIN_SAMPLE_DATE) %>% 
+      filter(sample_depth <= MAX_SAMPLE_DEPTH | lage == 1) %>% 
+      as_tibble() %>% 
+      # slice(40000:45000) %>% 
+      group_by(station_id) %>% 
+      summarise(n = n()) %>% 
+      mutate(
+        n = factor(n, levels = min(n):max(n)),
+        n_cat = if_else(as.character(n) == as.character(1), "unchanged", "aggregated")
+        # n_cat = factor(n_cat, levels = c("aggregated", "unchanged"))
+      ) %>%
+      ggplot(aes(n)) +
+      geom_histogram(
+        aes(fill = n_cat),
+        alpha = .4,
+        stat = "count"
+      ) +
+      scale_y_log10() +
+      theme_minimal() +
+      theme(legend.position = "top", legend.direction = "horizontal") +
+      labs(
+        fill = "Treatment of multiple measurements per sample site",
+        x = "Number of measurements per sample site",
+        y = "Number of sample sites"
+      )
+  }
+
+make_samplesparameters_plot <-
+  function(x) {
+    x %>%
+      as_tibble() %>% 
+      select(-station_id, -sample_depth, -geometry) %>% 
+      pivot_longer(cols = everything()) %>% 
+      drop_na(everything()) %>% 
+      count(name) %>% 
+      arrange(-n) %>% 
+      mutate(n_cat = if_else(row_number() <= 13 & !(name %in% c("ph", "lf_u_scm", "nh4_mg_l")), "kept", "discarded")) %>% 
+      ggplot(aes(reorder(name, n), n, fill = n_cat)) +
+      geom_col(alpha = .4) +
+      theme_minimal() +
+      theme(legend.position = "top", legend.direction = "horizontal") +
+      labs(
+        fill = "",
+        x = "Hydrogeochemical parameters",
+        y = "Number of samples"
+      ) +
+      coord_flip()
+  }
+
+make_sampledatedistribution_current_plot <-
+  function(x) {
+    x %>%
+      as_tibble() %>%
+      select(date) %>%
+      ggplot(aes(date)) +
+      geom_histogram(
+        fill = "#559FFF",
+        colour = "#559FFF4D",
+        alpha = .7,
+        boundary = as.Date(MIN_SAMPLE_DATE)
+      ) +
+      theme_minimal() +
+      labs(
+        x = "Sample date",
+        y = "Number of samples"
+      )
+  }
+
+
+make_sampledepthdistribution_current_plot <-
+  function(x) {
+    x %>%
+      as_tibble() %>%
+      select(sample_depth) %>%
+      ggplot(aes(sample_depth)) +
+      geom_histogram(
+        fill = "#559FFF",
+        colour = "#559FFF4D",
+        alpha = .7,
+        boundary = as.Date(MIN_SAMPLE_DATE)
+      ) +
+      scale_x_continuous(
+        limits = c(-10, 500)) +
+      theme_minimal() +
+      theme(legend.position = "top", legend.direction = "horizontal") +
+      labs(
+        x = "Sample depth",
+        y = "Number of samples"
+      ) +
+      scale_x_reverse() +
+      coord_flip()
+  }
+
+make_measurementdistribution_current_plot <-
+  function(x) {
+    x %>% 
+      as_tibble() %>% 
+      # slice(40000:45000) %>% 
+      group_by(station_id) %>% 
+      summarise(n = n()) %>% 
+      mutate(
+        n = factor(n, levels = min(n):max(n))
+      ) %>%
+      ggplot(aes(n)) +
+      geom_histogram(
+        fill = "#559FFF",
+        colour = "#559FFF4D",
+        alpha = .7,
+        stat = "count"
+      ) +
+      scale_y_log10() +
+      theme_minimal() +
+      theme(legend.position = "top", legend.direction = "horizontal") +
+      labs(
+        x = "Number of measurements per sample site",
+        y = "Number of sample sites"
+      )
+  }
+
+make_samplesparameters_current_plot <-
+  function(x) {
+    x %>% 
+      as_tibble() %>% 
+      select(-station_id, -sample_depth, -geometry) %>% 
+      pivot_longer(cols = everything()) %>% 
+      drop_na(everything()) %>% 
+      count(name) %>% 
+      arrange(-n) %>% 
+      mutate(n_cat = if_else(row_number() <= 13 & !(name %in% c("ph", "lf_u_scm", "nh4_mg_l")), "modelled", "considered for modelling later")) %>% 
+      ggplot(aes(reorder(name, n), n, fill = n_cat)) +
+      geom_col(alpha = .7) +
+      theme_minimal() +
+      scale_fill_manual(values = c("#F8766D", "#559FFF")) +
+      theme(legend.position = "top", legend.direction = "horizontal") +
+      labs(
+        fill = "",
+        x = "Hydrogeochemical parameters",
+        y = "Number of samples"
+      ) +
+      coord_flip()
+  }
+
+make_locations_plot <-
+  function(x) {
+    plot <- 
+      x %>% 
+      st_coordinates() %>% 
+      as_tibble() %>% 
+      ggplot(aes(X, Y)) +
+      ggplot2::stat_bin_hex(binwidth = 1E4) +
+      geom_point(fill = NA, colour = NA) +
+      scale_fill_viridis_c() +
+      coord_equal() +
+      theme_void() +
+      theme(legend.position = "left") +
+      labs(fill = "Number of samples\n per hexagon")
+    
+    ggExtra::ggMarginal(plot, type="density", fill = "grey", colour = NA, alpha = .3)
+  }
+
+

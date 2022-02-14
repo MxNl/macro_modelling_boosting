@@ -1,0 +1,445 @@
+---
+title: "Using an Extreme Gradient Boosting Learner for Mapping Hydrogeochemical Parameters in Germany"
+subtitle: "Current State of the Project"
+author: "Maximilian Nölscher, Stefan Broda"
+date: "`r format(Sys.time(), '%d/%m/%Y')`"
+output:
+  bookdown::html_document2:
+    theme: lumen
+    highlight: tango
+    toc: TRUE
+    toc_float: TRUE
+    collapse: FALSE
+    toc_depth: 3
+    collapsed: FALSE
+    smooth_scroll: FALSE
+    number_sections: TRUE
+    self_contained: yes
+    df_print: paged
+    #code_folding: show
+bibliography: vEGU_display_material.bib
+nocite: '@*'
+biblio-style: "apalike"
+link-citations: true
+editor_options: 
+  markdown: 
+    wrap: 72
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = FALSE)
+knitr::opts_chunk$set(warning = FALSE)
+knitr::opts_chunk$set(message = FALSE)
+knitr::opts_chunk$set(out.width = "100%")
+knitr::opts_chunk$set(fig.align="center")
+options(tidyverse.quiet = TRUE)
+```
+
+```{r}
+library(skimr)
+library(visdat)
+library(targets)
+library(mapview)
+library(knitr)
+library(sf)
+library(ggExtra)
+library(patchwork)
+library(tidyverse)
+```
+
+```{r, echo = FALSE}
+source("R/processing_functions.R")
+source("R/markdown.R")
+source("R/plot_functions.R")
+source("R/constants.R")
+```
+
+<br /> This study is part of the [MACRO
+project](https://www.bgr.bund.de/EN/Themen/Wasser/Projekte/laufend/F+E/Macro/macro_projektbeschr_en.html?nn=1548270).
+This project will end approximately in the summer of 2023. Briefly, its
+goals are to explore the application of machine learning for
+mapping/regionalization in the field of hydrogeology in general. <br />
+<br />
+
+<p align="center">
+
+<a href="https://www.bgr.bund.de/EN/Themen/Wasser/Projekte/laufend/F+E/Macro/macro_projektbeschr_en.html?nn=1548270">
+<img src="logo/MACRO_logo.svg"/> </a>
+
+</p>
+
+<br /> <br /> <br /> <br /> <br />
+
+# Abstract
+
+Information on the spatial distribution of hydrogeochemical parameters
+is crucial for decision making. Machine learning based methods for the
+mapping of hydrogeochemical parameter concentrations have been already
+studied for many years to evolve from deterministic and geostatistical
+interpolation methods. However, the reflection of all relevant processes
+that the target variables depend on is often difficult to achieve,
+because of the mostly insufficient determination and/or availability of
+features. This is especially true if you limit yourself to freely
+accessible data.
+
+In this study, we apply an extreme gradient boosting learner (XGBoost)
+to map major ion concentrations across Germany. The training data
+consists of water samples from approximately 35K observation wells
+across Germany and a wide range of environmental data as predictors. The
+water samples were collected between the 1950s and 2005 at
+anthropogenically undisturbed locations.
+
+The environmental data includes hydrogeological units and parameters,
+soil type, lithology, digital elevation model (DEM) and DEM derived
+parameters etc. The values of these features at the respective water
+sample location were extracted on the basis of a polygon, approximately
+representing the area that has an impact on the target variable (ion
+concentration). For a comparison, different polygon shapes are used.
+
+# Workflow
+
+The workflow from data preprocessing to model evaluation is
+schematically shown in fig. \@ref(fig:flowchart). The single steps are
+described more in detail in the following sections. The work of this
+study is still in progress. The preprocessing of the hydrogeochemical
+background values dataset is described in [Hydrogeochemical Parameters],
+the feature extraction in section [Feature Extraction], the modelling
+pipeline in [Model Training] and the evaluation can be found in
+[Evaluation].
+
+All data processing and modelling was done using the R programming
+language using multiple packages (see chapter [References]).
+
+```{r flowchart, fig.cap="flowchart", out.width="50%"}
+knitr::include_graphics("inkscape_figures/flowchart.svg")
+```
+
+# Data
+
+## Hydrogeochemical Parameters
+
+```{r}
+original_data <- tar_read(back_vals_2005_clean_sf)
+```
+
+The target variables of the training data being used in this study is
+based on a dataset containing initially approximately
+`r as.character(round(nrow(original_data), -3))` measurements of
+hydrogeochemical parameters from groundwater samples predominantly taken
+during the second half of the 20th century until
+`r original_data %>% pull(date) %>% max(na.rm = TRUE) %>% lubridate::year()`.
+
+Before preprocessing the data, we can have a quick view on some
+attributes of the dataset: sample date and sample depth.
+
+**Distribution of the sample date** <br />
+
+```{r sampledatedistribution, out.width="70%", fig.cap="Distribution of sample date"}
+tar_read(sampledatedistribution_current_plot)
+```
+
+Whereas the earliest samples are from the year
+`r tar_read(back_vals_2005_clean_sf) %>% pull(date) %>% min() %>% lubridate::year()`,
+most samples were taken in the second half of the 20^th^ century.
+
+<br /> **Distribution of the sample depth** <br />
+
+The sample depth was calculated as mean depth of the screen top and
+bottom if it was provided. Thus, it reflects the screen center depth
+below ground level of an observation well. For the model training, the
+sample depth was used as feature (predictor variable).
+
+```{r sampledepthdistribution, out.width="70%", fig.cap="Distribution of sample depth"}
+tar_read(sampledepthdistribution_current_plot)
+```
+
+<br />
+
+The number of samples used for training the models is reduced due to the
+following steps:
+
+### Preprocessing
+
+<br /> **Intersection with Study Area** <br />
+
+The sample locations were intersected with the administrative border of
+Germany.
+
+<br /> **Aggregation of multiple measurements per sample site** <br />
+
+Some of the sample sites have multiple measurements over time which were
+aggregated by calculating the mean. The distribution of the number of
+measurements per sample site after applying the previous processing
+steps is shown in figure \@ref(fig:measurementdistribution).
+
+```{r measurementdistribution, out.width="70%", fig.cap="Distribution of multiple measurements per sample site"}
+tar_read(measurementdistribution_current_plot)
+```
+
+```{r}
+target_data <-
+  tar_read(back_vals_filter_allpositive_sf) %>%
+  as_tibble() %>%
+  select(station_id, sample_depth, all_of(tar_read(parameters_to_model))) %>%
+  filter_all(any_vars(complete.cases(.)))
+```
+
+<br /> **Selection of parameters as target variables** <br />
+
+From all measured parameters, the ten ions with the most samples were
+selected as target variables to be modelled
+(`r tar_read(parameters_to_model) %>% parameter_pretty_markdown() %>% word(1) %>% str_c(collapse = ", ")`;
+see fig. \@ref(fig:samplesparameters)). Across all these parameters and
+after all preprocessing steps, `r nrow(target_data)` samples and
+`r ncol(target_data)` columns, 1 for the station ID (`station_id`), 1
+for the sample depth (`sample_depth`) and `r ncol(target_data) - 2` for
+each target variable remain for the model training.
+
+```{r samplesparameters, fig.height=8, fig.cap="Samples per hydrogeochemical."}
+tar_read(samplesparameters_current_plot)
+```
+
+### Location
+
+The locations of the sample sites used for modelling are shown in
+\@ref(fig:locations) as the number of sample sites per hexagon. The
+spatial distribution of sampling locations is unbalanced with regions
+that have few locations and regions with a high density. The latter are
+mainly concentrated around larger cities in Germany such as Berlin,
+Hamburg, Frankfurt. The eastern and northern areas of Germany also
+generally have more sampling sites compared to southern or central
+Germany.
+
+```{r locations, fig.cap="Sample site locations"}
+tar_read(locations_current_plot)
+```
+
+### Data Summary
+
+The resulting dataset steps is shown in table \@ref(tab:targetdatahead)
+as an example.
+
+```{r targetdatahead}
+target_data %>% 
+  drop_na(everything()) %>% 
+  select(-sample_depth) %>% 
+  slice(1:3) %>% 
+  knitr::kable(caption = "First three rows of the dataset containing the target variables")
+```
+
+<br />
+<br />
+
+The distribution of target values as violin chart is shown in figure
+\@ref(fig:violindistribution). From the distribustions of some of the parameters, it can be inferred that values referring to the lower detection limit are still present in the dataset (e.g. see high concentration of potassium concentrations below 1E-4 mg/L). This values must be removed. 
+
+```{r violindistribution, out.width="70%", fig.cap="Distribution of the target variable values"}
+tar_read(plot_xgb_violin_distribution_targets)
+```
+
+
+
+## Features
+
+```{r}
+data_features <- 
+  tar_read(data_features_depth_added)
+```
+
+### Feature Extraction
+
+In addition to this dataset, geophysical attributes were extracted from
+other spatial data sources (see the following list) and used as
+features:
+
+-   [Geological
+    Map](https://www.bgr.bund.de/DE/Themen/Sammlungen-Grundlagen/GG_geol_Info/Karten/Deutschland/GUEK200/guek200_inhalt.html)
+    [@bgr__sgd_guk250_2021]
+-   [Hydrogeological
+    Map](https://www.bgr.bund.de/DE/Themen/Wasser/Projekte/laufend/Beratung/Huek200/huek200_projektbeschr.html)
+    [@bgr__sgd_huk250_2019]
+-   [Seepage
+    Rate](https://www.bgr.bund.de/DE/Themen/Boden/Produkte/Karten/Downloads/Berechnung_Sickerwasserrate.pdf?__blob=publicationFile&v=4)
+    [@bgr_swr1000_2003]
+-   [Groundwater
+    Recharge](https://www.bgr.bund.de/DE/Themen/Wasser/Projekte/abgeschlossen/Beratung/Had/Was_had_abb_gwn1000.html?nn=1546102)
+    [@bgr_gwn1000_2019]
+-   [Hydrogeological
+    Units](https://www.bgr.bund.de/DE/Themen/Wasser/Projekte/abgeschlossen/Beratung/Hyraum/hyraum_projektbeschr.html)
+-   [Longterm Mean
+    Temperature](https://opendata.dwd.de/climate_environment/CDC/grids_germany/multi_annual/air_temperature_mean/BESCHREIBUNG_gridsgermany_multi_annual_air_temperature_mean_7100_de.pdf)
+    [@noauthor_vieljahrige_nodate]
+-   [Longterm Mean
+    Precipitation](https://opendata.dwd.de/climate_environment/CDC/grids_germany/multi_annual/precipitation/BESCHREIBUNG_gridsgermany_multi_annual_precipitation_6190_de.pdf)
+-   Multiorder Hydrologic Position (generated for this study after
+    @belitz_multiorder_2019, not yet published)
+    [@noauthor_raster_nodate]
+-   [Soil
+    units](https://www.bgr.bund.de/DE/Themen/Boden/Bilder/Bod_BGL5000_g.html)
+    [@bgr_bgl5000_2014]
+-   [Land Use and Land
+    Cover](https://land.copernicus.eu/pan-european/corine-land-cover)
+    [@_european_union_corine_2018]
+-   [Elevation](https://land.copernicus.eu/imagery-in-situ/eu-dem/eu-dem-v1.1)
+    [@_european_union_eu-dem_nodate]
+-   [Slope](https://land.copernicus.eu/imagery-in-situ/eu-dem/eu-dem-v1-0-and-derived-products/slope)
+    [@_european_union_slope_nodate]
+-   [Aspect](https://land.copernicus.eu/imagery-in-situ/eu-dem/eu-dem-v1-0-and-derived-products/aspect)
+    [@_european_union_aspect_nodate]
+
+The features were extracted based on a 1km buffer around the sample site
+as approximated groundwater contributing area as follows (see figure
+\@ref(fig:interactiveschematiclulcfeatureextractionmap)):
+
+-   Categorical features: the share of each class in the buffer area was
+    calculated. At the same time, this leads to an encoding as numerical
+    features.
+
+-   Numerical data: the mean for the buffer was calculated.
+
+    A basic evaluation of the impact of buffer sizes was conducted in
+    Knoll et al. (2019).
+
+    The feature extraction leads to a total number of
+    `r data_features %>% ncol() %>% magrittr::subtract(1)` features.
+
+```{r interactiveschematiclulcfeatureextractionmap, fig.cap="Example of feature extraction based on circular buffer around sample sites (red) (e.g. the land use and land cover data as shown here)"}
+knitr::include_graphics("plots_from_mohp_data_preparation/interactive_schematic_lulc_feature_extraction_map.svg")
+```
+
+The first three rows of the dataset containing the features is shown in
+table \@ref(tab:featuresdatahead) as an example.
+
+
+```{r featuresdatahead}
+data_features %>% 
+  drop_na(everything()) %>% 
+  slice(1:3) %>% 
+  knitr::kable(caption = "First three rows of the dataset containing the features") %>% 
+  kableExtra::scroll_box(width = "800px")
+```
+
+# Model Training
+
+All the data preprocessing all modelling was done using the R
+programming language and the `tidymodels` package. The modelling
+pipeline includes the following steps:
+
+-   Normalization (standardization) of all features
+
+-   Removal of highly correlated and/or sparse features
+
+-   80/20 train-test split
+
+-   5-fold cross-validation and stratification of the target variable
+    (no spatial cross-validation yet implemented)
+
+-   Hyperparameter tuning of the model parameters
+
+    -   `min_n`: minimum sum of instance weight (hessian) needed in a
+        child [@chen_xgboost_2020]
+    -   `tree_depth`: maximum depth of a tree [@chen_xgboost_2020]
+    -   `learn_rate`: learning rate [@chen_xgboost_2020]
+    -   `loss_reduction`: minimum loss reduction required to make a
+        further partition on a leaf [@chen_xgboost_2020] node of the
+        tree
+
+    for a XGBoost learner (number of trees fixed to 1000) with 50
+    parameter combinations using a parameter space filling grid.
+
+# Results
+
+## Hyperparameter Tuning {.tabset}
+
+The following table summarizes the hyperparameters of the best model
+configuration after the tuning process.
+
+```{r besthyperparamssummary, echo = FALSE, results = "asis"}
+model_params <- tar_read(xgboost_model_final_params)
+
+model_params %>% 
+  set_names(tar_read(parameters_to_model)) %>% 
+  imap(~mutate(.x, parameter = .y, .before = 1)) %>% 
+  reduce(bind_rows) %>% 
+  mutate(parameter = parameter_pretty_rmarkdown(parameter, with_unit = FALSE)) %>% 
+  kable() %>% 
+  kableExtra::kable_styling(full_width = TRUE)
+```
+
+## Evaluation
+
+*Disclaimer: As these results are preliminary and this study is still
+work in progress, the plain performance metrics are provided without any
+further statements or interpretations.*
+
+### Performance {.tabset}
+
+```{r, echo = FALSE, results = "asis"}
+plot_observed_vs_predicted <- tar_read(plot_xgb_observed_vs_predicted)
+plot_residuals_vs_predicted <- tar_read(plot_xgb_residuals_vs_predicted)
+
+names_pretty <-
+  plot_observed_vs_predicted %>%
+  names() %>%
+  parameter_pretty_markdown(with_unit = FALSE)
+
+for (i in seq_along(names_pretty)) {
+  create_section_results(plot_observed_vs_predicted[[i]],
+                         title = names_pretty[[i]],
+                         level = 4)
+}
+```
+
+
+### Feature Importance {.tabset}
+
+```{r, echo = FALSE, results = "asis"}
+plot_feature_importance <- tar_read(plot_xgb_feature_importance)
+
+plot_feature_importance %>%
+  names() %>%
+  parameter_pretty_markdown(with_unit = FALSE) %>% 
+  map2(plot_feature_importance, ~create_section(.y, .x, 4))
+```
+
+```{r, echo=FALSE}
+plot_feature_importance %>% 
+  map(function(x) {
+    x %>% 
+      ggplot_build() %>% 
+      chuck("plot") %>% 
+      chuck("data") %>% 
+      mutate(rank = row_number())
+  }) %>% 
+  reduce(left_join, by = "Variable") %>% 
+  drop_na(everything()) %>% 
+  select(-contains("Importance")) %>% 
+  pivot_longer(-Variable) %>% 
+  select(-name) %>% 
+  group_by(Variable) %>% 
+  summarise(total_rank = sum(value)) %>% 
+  arrange(total_rank) %>% 
+  slice(1:5) %>% 
+  pull(Variable)
+```
+
+
+# Conclusion and Outlook
+
+This study aims on setting up a benchmark model as a basis for further
+development of more sophisticated machine learning models. The
+relatively simple model approach shows that the model performance varies
+strongly between the target variables indicating that further features
+are required to reflect the geophysical characteristics which play a
+role in the processes that drive the concentration of the target
+variable. Further steps to increase this preliminary model setup are:
+
+-   Inclusion of more and relevant geophysical attributes as features
+-   Evaluation of different feature extraction/engineering methods
+-   Set up of a model ensemble to approximate a XGBoost multi-output
+    model and model all parameters in a single model
+-   Implement spatial cross-validation for more realistic model
+    performance estimation
+-   Evaluate deep learning approaches
+
+# References

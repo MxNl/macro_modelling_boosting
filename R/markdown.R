@@ -39,13 +39,16 @@ create_section <- function(data, title, level, data_type = "plot") {
   
   # a list, formatted as Markdown
   # adding also empty lines, to be sure that this is valid Markdown
-  pander::pandoc.p('')
+  pander::pandoc.p('The feature importance plots rank the relevance of each feature for the
+respective model. Across all models, the top 5 relevant features are
+seepage rate, sample depth, divide stream distance of hydrologic order
+7, elevation and divide stream distance of hydrologic order 8.')
   # pander::pandoc.list(letters[1:3])
   # pander::pandoc.p('')
 }
 
 
-create_section_results <- function(plot1, plot2, title, level) {
+create_section_results <- function(plot1, plot2 = NULL, title, level) {
   pander::pandoc.header(paste0(title, " {.unnumbered}"), level = level)
   # Section contents
     # print(plot1)
@@ -66,7 +69,9 @@ create_section_results <- function(plot1, plot2, title, level) {
     print(plot2)
   # a list, formatted as Markdown
   # adding also empty lines, to be sure that this is valid Markdown
-  pander::pandoc.p('')
+  pander::pandoc.p('These scatter plots show that the model performances vary across the
+different hydrogeochemical parameters. Comparatively good results are
+achieved for ions such as Ca^+^, poor results for Mn^+^.')
   # pander::pandoc.list(letters[1:3])
   # pander::pandoc.p('')
 }

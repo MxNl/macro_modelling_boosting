@@ -41,6 +41,7 @@ tar_option_set(packages = c("parallel",
                memory = "transient")
 
 
+source("targets/report_targets.R")
 # plan(multisession)
 
 
@@ -414,17 +415,7 @@ list(
   #   iteration = "list"
   # ),
   
-  # Report ------------------------------------------------------------------
-
-  tar_render(
-    report,
-    "macro_modelling_boosting.Rmd"
-  ),
-
-  tar_render(
-    vegu_display_materials,
-    "vEGU_display_material_maximilian_noelscher.Rmd"
-  )
+  report_targets
 
 )
 
